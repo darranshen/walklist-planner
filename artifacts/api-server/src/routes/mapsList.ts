@@ -1,3 +1,34 @@
+/**
+ * GET /api/maps-list?url=<google-maps-url>
+ *
+ * Resolves a Google Maps shared list URL (maps.app.goo.gl short link or full
+ * placelists/list URL) and returns the list of places with name, address, lat,
+ * and lng by calling Google's internal entitylist/getlist data API.
+ *
+ * Data format (confirmed from live response 2026-05):
+ *   After stripping )]}'  the JSON is:
+ *   [[
+ *     [LIST_TOKEN, 1, ...],          // [0] list metadata
+ *     4,                              // [1]
+ *     [3, 1, "CANONICAL_URL"],        // [2]
+ *     ["USER", "AVATAR", "USER_ID"], // [3]
+ *     "LIST_TITLE",                  // [4]
+ *     "", null, null,                 // [5-7]
+ *     [[PLACE_ENTRY, ...]]            // [8] — wrapped in an extra array!
+ *   ]]
+ *
+ *   Each PLACE_ENTRY:
+ *   [
+ *     null,                                           // [0]
+ *     [null, null, FULL_ADDR, null, SHORT_ADDR,       // [1]
+ *       [null, null, LAT, LNG],                       // [1][5]
+ *       [FEATURE_IDS], "/g/PLACE_PATH"],
+ *     "PLACE_NAME",                                   // [2]
+ *     ...
+ *   ]
+ */
+
+import https from "node:https";
 import { Router } from "express";
 import { logger } from "../lib/logger";
 
@@ -13,6 +44,49 @@ const BROWSER_HEADERS = {
   "Accept-Encoding": "identity",
 };
 
+export interface ParsedLocation {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  placeId?: string;
+}
+
+// ── Resolve a short URL by reading the raw 302 Location header ───────────────
+// maps.app.goo.gl returns 302 with Location for non-browser user agents
+// but renders a 200 JS page for browser UAs (which hides the redirect target).
+// Using a minimal non-browser UA here bypasses that and gives us the target URL.
+
+function resolveShortUrl(url: string): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const parsed = new URL(url);
+      const req = https.request(
+        {
+          method: "GET",
+          hostname: parsed.hostname,
+          path: parsed.pathname + parsed.search,
+          headers: { "User-Agent": "curl/8.4.0" },
+        },
+        (res) => {
+          res.resume(); // discard body
+          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            resolve(new URL(res.headers.location, url).href);
+          } else {
+            resolve(url);
+          }
+        },
+      );
+      req.on("error", () => resolve(url));
+      req.end();
+    } catch {
+      resolve(url);
+    }
+  });
+}
+
+// ── Validate input URL ───────────────────────────────────────────────────────
+
 function isGoogleMapsUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
@@ -25,143 +99,120 @@ function isGoogleMapsUrl(raw: string): boolean {
   }
 }
 
-export interface ParsedLocation {
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
+// ── Extract the list share token from a Maps URL ──────────────────────────────
+// Handles three formats:
+//   1. maps.app.goo.gl/XXX → redirect target contains !2s{TOKEN} in data= param
+//   2. www.google.com/maps/@/data=...!2s{TOKEN}...
+//   3. www.google.com/maps/placelists/list/{TOKEN}
+
+function extractTokenFromUrl(url: string): string | null {
+  // Format 3: /maps/placelists/list/{TOKEN}
+  const listPathMatch = url.match(/\/maps\/placelists\/list\/([A-Za-z0-9_=-]{10,})/);
+  if (listPathMatch) return listPathMatch[1];
+
+  // Formats 1 & 2: !2s{TOKEN} inside data= param
+  // The token appears as !2s followed by alphanumeric chars
+  const dataParamMatch = url.match(/[!&]2s([A-Za-z0-9_=-]{10,})/);
+  if (dataParamMatch) return dataParamMatch[1];
+
+  return null;
 }
 
-// ── Coordinate validation ─────────────────────────────────────────────────────
+// ── Build the getlist pb parameter ────────────────────────────────────────────
+// Confirmed working without session token for public lists.
 
-function looksLikeLatLng(a: unknown, b: unknown): a is number {
-  if (typeof a !== "number" || typeof b !== "number") return false;
-  // Both must be floats (not just integers like 1 or 500)
-  if (a === Math.floor(a) && b === Math.floor(b)) return false;
-  if (Math.abs(a as number) < 0.1 || Math.abs(a as number) >= 90) return false;
-  if (Math.abs(b as number) < 0.1 || Math.abs(b as number) >= 180) return false;
-  return true;
+function buildGetlistPb(token: string): string {
+  return `!1m4!1s${token}!2e1!3m1!1e1!2e2!3e2!4i500`;
 }
 
-// ── Recursive tree walker ─────────────────────────────────────────────────────
-// Approach: walk the full nested JSON. Collect all (string, [lat,lng]) pairs
-// that appear in the same parent array. The first string in a parent that also
-// contains a coordinate pair is treated as the place name; the next long string
-// (if any) is the address.
-
-interface CoordHit {
-  lat: number;
-  lng: number;
-  /** Strings found in the same array as the coordinate pair */
-  siblings: string[];
-}
-
-function collectCoords(node: unknown, depth = 0): CoordHit[] {
-  if (depth > 25 || !Array.isArray(node)) return [];
-
-  const hits: CoordHit[] = [];
-
-  // Check if THIS array starts with a valid lat/lng pair (length >= 2)
-  if (
-    node.length >= 2 &&
-    looksLikeLatLng(node[0], node[1])
-  ) {
-    const lat = node[0] as number;
-    const lng = node[1] as number;
-    // Collect string siblings in the same parent (done by parent — leave it)
-    hits.push({ lat, lng, siblings: [] });
-  }
-
-  // Collect sibling strings + recurse
-  const localStrings: string[] = [];
-  const childHits: CoordHit[] = [];
-
-  for (const item of node) {
-    if (
-      typeof item === "string" &&
-      item.length > 1 &&
-      item.length < 400 &&
-      !item.startsWith("http") &&
-      !item.startsWith("ChIJ") // skip place IDs
-    ) {
-      localStrings.push(item);
-    } else if (Array.isArray(item)) {
-      const sub = collectCoords(item, depth + 1);
-      childHits.push(...sub);
-    }
-  }
-
-  // Attach local strings to any direct coord hits found in children arrays
-  for (const h of childHits) {
-    if (h.siblings.length === 0 && localStrings.length > 0) {
-      h.siblings.push(...localStrings);
-    }
-  }
-
-  hits.push(...childHits);
-  return hits;
-}
+// ── Parse the known getlist response format ───────────────────────────────────
 
 function parseGetlistResponse(raw: string): ParsedLocation[] {
-  // Strip Google's XSSI prefix  )]}'
   const json = raw.replace(/^\s*\)\]\}'\s*/, "").trim();
 
   let data: unknown;
   try {
     data = JSON.parse(json);
-  } catch {
-    logger.warn("Failed to JSON.parse getlist response");
+  } catch (e) {
+    logger.warn({ err: e }, "Failed to JSON.parse getlist response");
     return [];
   }
 
-  const hits = collectCoords(data);
-  const seen = new Set<string>();
-  const results: ParsedLocation[] = [];
+  // data[0][8][0] is the places array (double-wrapped)
+  const outer = Array.isArray(data) && Array.isArray(data[0]) ? (data[0] as unknown[]) : null;
+  if (!outer) {
+    logger.warn("Unexpected top-level structure in getlist response");
+    return [];
+  }
 
-  for (const hit of hits) {
-    const key = `${hit.lat.toFixed(6)},${hit.lng.toFixed(6)}`;
+  // Note: outer[1] === 4 is a normal field in a working list response — NOT an
+  // error code. The list title is at outer[4]; places are at outer[8][0].
+
+  // Places are at outer[8] — a direct Array(N) of place entries, NOT double-wrapped.
+  // (Confirmed: outer[8] = [PLACE1, PLACE2, ...], each PLACE = Array(13) of fields.)
+  const places = Array.isArray(outer[8]) ? (outer[8] as unknown[]) : null;
+
+  if (!places) {
+    logger.warn(
+      { outer8Type: typeof outer[8], outer8: JSON.stringify(outer[8])?.slice(0, 200) },
+      "Could not find places array at outer[8]",
+    );
+    return [];
+  }
+
+  logger.info({ candidatePlaces: places.length }, "Found candidate place entries");
+
+  const results: ParsedLocation[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < places.length; i++) {
+    const entry = places[i];
+    if (!Array.isArray(entry)) continue;
+
+    // entry[2] = place name
+    const name = entry[2];
+    if (typeof name !== "string" || !name.trim()) {
+      logger.debug({ idx: i, entry0: entry[0], entry2: entry[2] }, "Skipping entry: no name at [2]");
+      continue;
+    }
+
+    // entry[1] = place data array
+    const placeData = entry[1];
+    if (!Array.isArray(placeData)) {
+      logger.debug({ idx: i, name }, "Skipping entry: no placeData array at [1]");
+      continue;
+    }
+
+    // placeData[5] = [null, null, lat, lng]
+    const coordArr = placeData[5];
+    if (!Array.isArray(coordArr) || coordArr.length < 4) {
+      logger.debug({ idx: i, name, coordArr }, "Skipping entry: coordArr not at [1][5] or too short");
+      continue;
+    }
+
+    const lat = coordArr[2];
+    const lng = coordArr[3];
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      logger.debug({ idx: i, name, lat, lng }, "Skipping entry: lat/lng not numbers");
+      continue;
+    }
+
+    const key = `${lat.toFixed(7)},${lng.toFixed(7)}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    // First sibling string = name, second (if longer / has comma) = address
-    const [firstName, ...rest] = hit.siblings;
-    const name = firstName || `Location ${results.length + 1}`;
-    const address =
-      rest.find((s) => s.length > name.length || s.includes(",")) || firstName || name;
+    // placeData[4] = short address, placeData[2] = full address
+    const shortAddr = typeof placeData[4] === "string" ? placeData[4] : "";
+    const fullAddr = typeof placeData[2] === "string" ? placeData[2] : "";
+    const address = shortAddr || fullAddr || name;
 
-    results.push({ name, address, latitude: hit.lat, longitude: hit.lng });
+    // placeData[7] = "/g/PLACE_PATH"
+    const placeId =
+      typeof placeData[7] === "string" ? placeData[7].replace(/^\/g\//, "") : undefined;
+
+    results.push({ name: name.trim(), address, latitude: lat, longitude: lng, placeId });
   }
 
-  return results;
-}
-
-// ── Extract getlist preload URL from HTML ─────────────────────────────────────
-
-function extractGetlistUrl(html: string): string | null {
-  const match = html.match(/href="(\/maps\/preview\/entitylist\/getlist[^"]+)"/);
-  if (!match) return null;
-  return match[1].replace(/&amp;/g, "&");
-}
-
-// ── Fallback: scan HTML for /maps/place/ URLs ─────────────────────────────────
-
-function parseHtmlPlaceUrls(html: string): ParsedLocation[] {
-  const results: ParsedLocation[] = [];
-  const seen = new Set<string>();
-  const re = /\/maps\/place\/([^/@\s"'\\]+)\/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    try {
-      const name = decodeURIComponent(m[1].replace(/\+/g, " ")).trim();
-      const lat = parseFloat(m[2]);
-      const lng = parseFloat(m[3]);
-      const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-      if (name && !isNaN(lat) && !isNaN(lng) && !seen.has(key)) {
-        seen.add(key);
-        results.push({ name, address: name, latitude: lat, longitude: lng });
-      }
-    } catch { /* skip */ }
-  }
   return results;
 }
 
@@ -180,80 +231,123 @@ router.get("/maps-list", async (req, res) => {
     return;
   }
 
-  // ── Step 1: Fetch the list page HTML ──────────────────────────────────────
-  let html: string;
-  let finalUrl: string;
-  try {
-    const pageRes = await fetch(url, { headers: BROWSER_HEADERS, redirect: "follow" });
-    if (!pageRes.ok) {
-      res.status(502).json({ error: `Google Maps returned status ${pageRes.status}` });
-      return;
-    }
-    finalUrl = pageRes.url;
-    html = await pageRes.text();
-  } catch (err) {
-    logger.error({ err, url }, "Failed to fetch Google Maps page");
-    res.status(502).json({ error: "Could not reach Google Maps. Check the URL and try again." });
-    return;
+  // ── Step 1: Resolve the canonical Maps URL ────────────────────────────────
+  // maps.app.goo.gl returns 200 + JS page for browser UAs (client-side redirect)
+  // but returns 302 + Location header for non-browser UAs.
+  // We use resolveShortUrl (curl UA) to get the Location target, which contains
+  // the list share token in its data= parameter as !2s{TOKEN}.
+  let finalUrl = url;
+
+  const parsed = new URL(url);
+  if (parsed.hostname === "maps.app.goo.gl" || parsed.hostname === "goo.gl") {
+    finalUrl = await resolveShortUrl(url);
+    logger.info({ originalUrl: url, finalUrl }, "Resolved short URL");
   }
 
-  logger.info({ finalUrl, htmlBytes: html.length }, "Fetched list page HTML");
+  // ── Step 2: Extract the list share token from the canonical URL ───────────
+  let token = extractTokenFromUrl(finalUrl);
+  logger.info({ finalUrl, token }, "Token extracted from canonical URL");
 
-  // ── Step 2: Call the getlist data API ─────────────────────────────────────
-  const getlistPath = extractGetlistUrl(html);
-  logger.info({ getlistPath }, "Extracted getlist path");
+  // ── Step 3: If no token yet, fetch the Maps page HTML to find the preload ──
+  // This handles cases where the user pastes a full maps.google.com URL directly
+  // rather than a short link. The full Maps page embeds a getlist preload URL.
+  let html = "";
+  if (!token) {
+    try {
+      const pageRes = await fetch(finalUrl, { headers: BROWSER_HEADERS, redirect: "follow" });
+      html = await pageRes.text();
+      logger.info({ htmlBytes: html.length, status: pageRes.status }, "Fetched Maps HTML for preload");
+      // Try extracting token from preload URL embedded in the HTML
+      const pbMatch = html.match(/entitylist\/getlist[^"]*[?&]pb=([^"&\s]+)/);
+      if (pbMatch) {
+        const pbDecoded = decodeURIComponent(pbMatch[1]);
+        const t = pbDecoded.match(/!1s([A-Za-z0-9_=-]{10,})/);
+        if (t) {
+          token = t[1];
+          logger.info({ token }, "Extracted token from HTML preload pb param");
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, "Failed to fetch Maps HTML");
+    }
+  }
 
-  if (getlistPath) {
+  // ── Step 4: Call getlist directly using the token ─────────────────────────
+  if (token) {
+    try {
+      const pb = buildGetlistPb(token);
+      const getlistUrl = `https://www.google.com/maps/preview/entitylist/getlist?pb=${encodeURIComponent(pb)}`;
+      logger.info({ getlistUrl }, "Calling getlist API with extracted token");
+
+      const dataRes = await fetch(getlistUrl, {
+        headers: { ...BROWSER_HEADERS, Accept: "*/*", Referer: "https://www.google.com/maps/" },
+      });
+      const raw = await dataRes.text();
+      logger.info(
+        {
+          status: dataRes.status,
+          contentType: dataRes.headers.get("content-type"),
+          rawLength: raw.length,
+          preview: raw.slice(0, 800).replace(/lh3\.googleusercontent\.com\/[^\s"]+/g, "[AVATAR]"),
+        },
+        "getlist API response",
+      );
+
+      const locations = parseGetlistResponse(raw);
+      logger.info({ count: locations.length }, "Parsed locations from token-based getlist");
+
+      if (locations.length > 0) {
+        res.json({ locations, count: locations.length });
+        return;
+      }
+
+      // Token resolved but got no places — check for private/not-found error
+      const stripped = raw.replace(/^\s*\)\]\}'\s*/, "").trim();
+      if (!stripped.startsWith("[[") || /^\[\[null,4/.test(stripped) || /\[4,/.test(stripped.slice(0, 80))) {
+        res.status(404).json({
+          error:
+            "The list could not be found or is set to private. In Google Maps, open the list → Share → set to Anyone with the link.",
+        });
+        return;
+      }
+    } catch (err) {
+      logger.warn({ err }, "Token-based getlist call failed; trying HTML preload fallback");
+    }
+  }
+
+  // ── Step 5: Fallback — use the getlist preload URL embedded in the HTML ───
+  const preloadMatch = html.match(/href="(\/maps\/preview\/entitylist\/getlist[^"]+)"/);
+  if (preloadMatch) {
+    const getlistPath = preloadMatch[1].replace(/&amp;/g, "&");
+    logger.info({ getlistPath }, "Found getlist preload link in HTML");
+
     try {
       const dataRes = await fetch(`https://www.google.com${getlistPath}`, {
         headers: { ...BROWSER_HEADERS, Accept: "*/*", Referer: finalUrl },
       });
+      const raw = await dataRes.text();
+      logger.info(
+        { rawLength: raw.length, preview: raw.slice(0, 600).replace(/lh3\.googleusercontent\.com\/[^\s"]+/g, "[AVATAR]") },
+        "HTML-preload getlist response",
+      );
 
-      if (dataRes.ok) {
-        const raw = await dataRes.text();
-        // Log enough to diagnose format issues without PII overflow
-        logger.info(
-          { rawLength: raw.length, preview: raw.slice(0, 500) },
-          "getlist raw response",
-        );
-
-        // Detect "list not found / private" signal
-        const stripped = raw.replace(/^\s*\)\]\}'\s*/, "").trim();
-        if (stripped.includes('"4"') || /\[4,/.test(stripped) || /,4,/.test(stripped.slice(0, 60))) {
-          res.status(404).json({
-            error:
-              "This list could not be found or is private. In Google Maps, open the list, tap Share, and make sure sharing is set to 'Anyone with the link'.",
-          });
-          return;
-        }
-
-        const locations = parseGetlistResponse(raw);
-        logger.info({ count: locations.length }, "Parsed locations");
-
-        if (locations.length > 0) {
-          res.json({ locations, count: locations.length });
-          return;
-        }
-      } else {
-        logger.warn({ status: dataRes.status }, "getlist API non-OK response");
+      const locations = parseGetlistResponse(raw);
+      logger.info({ count: locations.length }, "Parsed locations from HTML-preload getlist");
+      if (locations.length > 0) {
+        res.json({ locations, count: locations.length });
+        return;
       }
     } catch (err) {
-      logger.warn({ err }, "getlist API call failed");
+      logger.warn({ err }, "HTML-preload getlist call failed");
     }
+  } else {
+    logger.warn({ htmlBytes: html.length, finalUrl }, "No entitylist/getlist preload found in HTML");
   }
 
-  // ── Step 3: Fallback — scan HTML for place URLs ───────────────────────────
-  const htmlLocations = parseHtmlPlaceUrls(html);
-  if (htmlLocations.length > 0) {
-    logger.info({ count: htmlLocations.length }, "Found locations via HTML fallback");
-    res.json({ locations: htmlLocations, count: htmlLocations.length });
-    return;
-  }
-
-  // Nothing found — give a helpful, specific error
+  // Nothing worked
   res.status(404).json({
     error:
-      "No locations were found. Make sure the list is shared publicly: in Google Maps, open your list → Share → Anyone with the link. Then paste the link here and try again.",
+      "The list is public but this Google Maps response format is not yet supported. Check server diagnostics for the raw response.",
   });
 });
 
