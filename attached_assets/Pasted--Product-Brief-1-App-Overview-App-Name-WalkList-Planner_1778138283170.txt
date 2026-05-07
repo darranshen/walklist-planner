@@ -1,0 +1,858 @@
+# Product Brief
+
+## 1. App Overview
+
+### App Name
+
+WalkList Planner
+
+### One-Sentence Description
+
+WalkList Planner helps users turn a Google Maps shared list of saved places into an interactive walking route with a map, ordered stops, walking times, and route summaries.
+
+### Target User
+
+People planning a walking itinerary across multiple saved places, such as travelers, city explorers, food tour planners, neighborhood visitors, or anyone organizing a walk between several locations.
+
+### Problem
+
+Google Maps shared lists are useful for saving places, but they do not provide a focused planning workspace where users can turn saved locations into an editable walking route, reorder stops, temporarily remove optional stops, restore removed stops, and immediately compare walking times and total route length.
+
+### Solution
+
+The app lets users enter or reference locations from a Google Maps shared list, view those locations on a map, generate a walking route through the selected stops, and adjust the route by removing, restoring, or reordering locations. The app updates the route, walking times, total walking time, and total distance whenever the route changes.
+
+### Primary Use Case
+
+A user has a list of saved places in Google Maps and wants to plan the best walking route between those places for a day trip, walking tour, errand route, or outing.
+
+### Why This App Should Exist
+
+Planning a walk across many saved places is tedious because users often have to switch between lists, maps, directions, and notes. This app creates one focused route-planning workspace for turning saved places into an editable walking route.
+
+---
+
+## 2. Goals and Non-Goals
+
+### Product Goals
+
+This app should help users:
+
+* View multiple saved locations together on a map.
+* Create a walking route through selected locations.
+* See estimated walking time from one location to the next.
+* See total walking time and total distance for the full route.
+* Remove, restore, and reorder locations to compare route options.
+* Keep a reference to the original Google Maps shared list.
+* Try the app quickly with sample route data.
+
+### Business Goals
+
+This app should help the business or creator:
+
+* Validate whether users want a dedicated route-planning tool for Google Maps saved lists.
+* Test the usability of manual and semi-manual list import before investing in deeper Google Maps integrations.
+* Create a demo-ready MVP that can be shared with early users for feedback.
+
+### Non-Goals
+
+This MVP will not include:
+
+* Full Google account login or direct private Google Maps list syncing.
+* Native iOS or Android apps.
+* Payments or subscriptions.
+* Multi-user collaboration.
+* Advanced route optimization across many constraints.
+* Public social sharing of routes.
+* Admin dashboards or analytics.
+* AI-generated itinerary recommendations.
+
+---
+
+## 3. Users and Use Cases
+
+### Primary User
+
+#### User Type
+
+Walking route planner
+
+#### Description
+
+A person who has saved multiple places in a Google Maps shared list and wants to organize those places into a practical walking route.
+
+#### Goals
+
+* Plan a walk that includes multiple saved locations.
+* Understand the walking time between each stop.
+* Understand the total walking time and distance for the route.
+* Quickly remove or restore stops while planning.
+* Reorder stops and immediately see the updated route.
+* Use a map to confirm that the walking route makes sense geographically.
+
+#### Pain Points
+
+* Google Maps saved lists are not optimized for editable route planning.
+* Reordering several stops manually can be frustrating.
+* It is hard to compare route options without repeatedly editing directions.
+* Some saved locations may be optional and should be easy to remove temporarily.
+* It can be difficult to estimate whether the full walk is too long.
+
+### Core Use Cases
+
+* Paste a Google Maps shared list URL for reference.
+* Add a set of locations from a Google Maps shared list workflow.
+* View all selected locations as markers on a map.
+* Generate a walking route through the selected locations.
+* Reorder locations and recalculate the route.
+* Remove optional locations and add them back later.
+* Review walking times between consecutive stops.
+* Review total walking time and total route distance.
+* Load sample data to understand how the app works.
+
+### Jobs To Be Done
+
+* When I have a Google Maps shared list of places, I want to turn it into a walking route, so I can plan my outing efficiently.
+* When I am comparing possible walking routes, I want to remove or reorder stops, so I can choose a route that fits my time and energy.
+* When I am reviewing my plan, I want to see walking times between locations, so I can understand how long each part of the route will take.
+* When I am deciding whether a walk is realistic, I want to see total walking time and distance, so I can adjust the route before I start.
+
+---
+
+## 4. Business/Product Requirements and User Stories
+
+| ID      | Requirement                                                                                                   | User Story                                                                                                               | Priority  | Notes                                                                                                                                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| REQ-001 | The app must allow users to create a route plan by adding two or more locations.                              | As a user, I want to add multiple locations, so that I can build a walking plan.                                         | Must Have | Minimum route requires at least 2 active locations.                                                                                                     |
+| REQ-002 | The app must display all active route locations as map markers.                                               | As a user, I want to see my saved locations on a map, so that I can understand where they are.                           | Must Have | Use Google Maps JavaScript API or Mapbox/Leaflet if Google Maps setup is unavailable in Replit.                                                         |
+| REQ-003 | The app must generate and display a walking route connecting the active locations in the current list order.  | As a user, I want the app to show a walking route, so that I can follow the path between stops.                          | Must Have | MVP should route by user-defined order, not advanced optimization.                                                                                      |
+| REQ-004 | The app must show estimated walking time between each pair of consecutive locations.                          | As a user, I want to see walking times between stops, so that I can judge whether the route is realistic.                | Must Have | Use routing API estimates when available. If unavailable, show approximate estimates from distance.                                                     |
+| REQ-005 | The app must allow users to remove active locations from the route without permanently deleting them.         | As a user, I want to remove a stop from the current route, so that I can simplify my walk without losing the place.      | Must Have | Removed locations should move to an inactive list and be restorable.                                                                                    |
+| REQ-006 | The app must allow users to add removed locations back into the route.                                        | As a user, I want to restore a removed location, so that I can include it in the route again.                            | Must Have | Restored locations can be added to the end of the active route by default.                                                                              |
+| REQ-007 | The app must allow users to change the order of active route locations.                                       | As a user, I want to change the order of stops, so that I can choose which location to visit first, second, and later.   | Must Have | This means changing route order only. It does not mean editing the location’s name, address, or details. Use drag-and-drop buttons or up/down controls. |
+| REQ-008 | The app must recalculate the route and walking times after the user removes, restores, or reorders locations. | As a user, I want the route to update automatically, so that I can compare route options quickly.                        | Must Have | Recalculate whenever active location order changes.                                                                                                     |
+| REQ-009 | The app must support pasting a Google Maps shared list URL for reference.                                     | As a user, I want to paste my shared list URL, so that I can keep track of the source list.                              | Must Have | Assumption: Direct extraction from Google Maps shared lists may not be technically reliable in MVP, so manual location entry is still required.         |
+| REQ-010 | The app must provide sample data for first-time users.                                                        | As a user, I want to try the app with example places, so that I can understand how it works before entering my own list. | Must Have | Include a “Load sample route” action.                                                                                                                   |
+| REQ-011 | The app must show route summary details, including total walking time and total distance.                     | As a user, I want to see total walking time and distance, so that I can decide whether the walk is manageable.           | Must Have | Use route API distance and duration when available. Use approximate fallback values in mock mode.                                                       |
+| REQ-012 | The app must be mobile-friendly.                                                                              | As a user, I want to plan my walking route on a phone, so that I can use the app while I am out.                         | Must Have | Use a responsive layout that works on desktop and mobile.                                                                                               |
+
+### Priority Definitions
+
+| Priority   | Meaning                                               |
+| ---------- | ----------------------------------------------------- |
+| Must Have  | Required for MVP. The app is incomplete without this. |
+| Won’t Have | Explicitly excluded from the MVP.                     |
+
+---
+
+## 5. MVP Scope
+
+### MVP Summary
+
+The MVP is the smallest useful version of the app that allows users to:
+
+* Add or reference multiple locations from a Google Maps shared list workflow.
+* View those locations on an interactive map.
+* Generate a walking route in the selected order.
+* See walking times between each stop.
+* See total walking time and total distance.
+* Remove, restore, and reorder locations while the route updates.
+* Try the app with sample route data.
+
+### Must Have
+
+These features are required for the MVP:
+
+* Location entry for two or more places.
+* Map view with markers for active locations.
+* Walking route displayed on the map.
+* Ordered location list.
+* Walking time between consecutive stops.
+* Remove location from active route.
+* Restore removed location.
+* Change the route order of active locations.
+* Route recalculation when the active list changes.
+* Empty state for no locations.
+* Basic validation for required fields.
+* Paste field for Google Maps shared list URL.
+* Sample route data.
+* Total walking time summary.
+* Total walking distance summary.
+* Mobile-friendly split layout.
+
+### Out of Scope for MVP
+
+Do not build these in the MVP:
+
+* Direct syncing with private Google Maps saved lists.
+* Google account authentication.
+* Multi-user collaboration.
+* Route sharing pages.
+* Payments.
+* Native mobile apps.
+* Admin dashboard.
+* Advanced route optimization with constraints like opening hours, weather, accessibility, or food preferences.
+* AI-generated itinerary recommendations.
+* Turn-by-turn navigation.
+* Editing a location’s name, address, or details after it has been added.
+* Saving multiple separate route plans.
+* Exporting route summaries.
+* Public social sharing.
+
+---
+
+## 6. User Flows
+
+### Flow 1: First-Time User
+
+1. User opens the app.
+2. User sees a short explanation: “Plan a walking route from a Google Maps saved list.”
+3. User sees actions for “Add Location” and “Load Sample Route.”
+4. User can optionally paste a Google Maps shared list URL for reference.
+5. User either loads sample data or manually adds locations.
+6. User sees locations appear in a route list and on the map.
+7. App displays the walking route, walking times between stops, total walking time, and total distance.
+8. User understands that they can change the route order, remove stops, or restore removed stops.
+
+### Flow 2: Returning User
+
+1. User opens the app.
+2. App loads the last saved route plan from local storage.
+3. User reviews the map, active route list, removed locations, total walking time, and total distance.
+4. User changes the route order, removes locations, restores locations, or adds new locations.
+5. App updates the map route, walking times, total walking time, and total distance.
+6. User uses the final route plan for their walk.
+
+### Flow 3: Create / Add Location
+
+1. User clicks “Add Location.”
+2. User sees a simple form with fields for location name and address.
+3. User enters the location details.
+4. App validates that name and address are present.
+5. User clicks “Save.”
+6. App geocodes the address if a geocoding API is available.
+7. App adds the new location to the active route list.
+8. App updates the markers, route, walking times, total walking time, and total distance.
+
+### Flow 4: Change Route Order
+
+1. User views the active location list.
+2. User chooses a location and moves it earlier or later in the route using drag-and-drop or up/down controls.
+3. App changes only the route order of the selected location.
+4. App does not edit the location’s name, address, coordinates, or saved details.
+5. App updates the numbered order in the active route list.
+6. App recalculates the walking route based on the new order.
+7. App updates walking times between stops, total walking time, and total distance.
+8. User sees the new route on the map.
+
+### Flow 5: Remove Location
+
+1. User selects an active location.
+2. User clicks “Remove from route.”
+3. App removes the location from the active route list.
+4. App moves the location to a “Removed locations” section.
+5. App recalculates the route with the remaining active locations.
+6. App updates walking times, total walking time, and total distance.
+7. User sees the updated route.
+
+### Flow 6: Restore Location
+
+1. User opens the “Removed locations” section.
+2. User clicks “Add back” on a removed location.
+3. App moves the location back into the active route list.
+4. App places the restored location at the end of the active route by default.
+5. App recalculates the route, walking times, total walking time, and total distance.
+6. User can change the restored location’s route order if needed.
+
+### Flow 7: Empty State
+
+1. User opens the app with no saved locations.
+2. App shows a helpful message explaining that the user needs at least two locations to generate a walking route.
+3. App shows buttons for “Add Location” and “Load Sample Route.”
+4. User chooses an action and begins planning.
+
+---
+
+## 7. Data Model
+
+### Data Storage Choice
+
+For the MVP, use:
+
+* [x] Local storage
+* [ ] Replit database
+* [ ] Supabase
+* [ ] Firebase
+* [ ] Postgres
+* [ ] Other: Not needed for MVP
+
+Recommended choice:
+Use browser local storage for the MVP because this is a single-user route planning prototype. It avoids authentication and backend complexity while still preserving the user’s most recent route plan between sessions.
+
+### Main Entities
+
+#### Entity: RoutePlan
+
+Description:
+A saved walking plan containing the user’s source list reference, active locations, removed locations, and route metadata.
+
+| Field               | Type     | Required? | Notes                                              |
+| ------------------- | -------- | --------- | -------------------------------------------------- |
+| id                  | string   | Yes       | Unique identifier                                  |
+| name                | string   | Yes       | Display name for the route plan                    |
+| sourceListUrl       | string   | No        | Optional Google Maps shared list URL for reference |
+| activeLocationIds   | string[] | Yes       | Ordered list of locations included in the route    |
+| removedLocationIds  | string[] | Yes       | Locations temporarily removed from the route       |
+| totalWalkingMinutes | number   | No        | Calculated from route legs                         |
+| totalDistanceMeters | number   | No        | Calculated from route legs                         |
+| createdAt           | datetime | Yes       | Creation timestamp                                 |
+| updatedAt           | datetime | Yes       | Last updated timestamp                             |
+
+#### Entity: Location
+
+Description:
+A place from the user’s Google Maps saved list or manually added by the user.
+
+| Field     | Type     | Required? | Notes                                             |
+| --------- | -------- | --------- | ------------------------------------------------- |
+| id        | string   | Yes       | Unique identifier                                 |
+| name      | string   | Yes       | Place name shown in the route list                |
+| address   | string   | Yes       | Address or place description                      |
+| latitude  | number   | No        | Required after geocoding for map marker placement |
+| longitude | number   | No        | Required after geocoding for map marker placement |
+| placeId   | string   | No        | Optional Google Places identifier if available    |
+| status    | string   | Yes       | One of: active, removed                           |
+| createdAt | datetime | Yes       | Creation timestamp                                |
+| updatedAt | datetime | Yes       | Last updated timestamp                            |
+
+#### Entity: RouteLeg
+
+Description:
+A walking segment between two consecutive active locations.
+
+| Field          | Type     | Required? | Notes                                             |
+| -------------- | -------- | --------- | ------------------------------------------------- |
+| id             | string   | Yes       | Unique identifier                                 |
+| fromLocationId | string   | Yes       | Starting location                                 |
+| toLocationId   | string   | Yes       | Ending location                                   |
+| orderIndex     | number   | Yes       | Position of the leg in the route                  |
+| walkingMinutes | number   | Yes       | Estimated walking time                            |
+| distanceMeters | number   | No        | Distance for the leg                              |
+| polyline       | string   | No        | Encoded route geometry if returned by routing API |
+| createdAt      | datetime | Yes       | Creation timestamp                                |
+| updatedAt      | datetime | Yes       | Last updated timestamp                            |
+
+### Relationships
+
+| Entity    | Relationship | Related Entity           |
+| --------- | ------------ | ------------------------ |
+| RoutePlan | has many     | Location                 |
+| RoutePlan | has many     | RouteLeg                 |
+| RouteLeg  | belongs to   | Location as fromLocation |
+| RouteLeg  | belongs to   | Location as toLocation   |
+
+### Validation Rules
+
+* RoutePlan name is required.
+* Location name is required.
+* Location address is required.
+* A route requires at least 2 active locations.
+* Location status must be one of: active, removed.
+* Latitude must be a valid number between -90 and 90 if provided.
+* Longitude must be a valid number between -180 and 180 if provided.
+* sourceListUrl must be a valid URL if provided.
+* activeLocationIds must preserve the user-selected route order.
+* removedLocationIds must only contain locations not currently active.
+* Route order changes must not modify location details.
+
+### Example Data
+
+```json
+{
+  "routePlan": {
+    "id": "route-1",
+    "name": "Saturday Coffee and Bookshop Walk",
+    "sourceListUrl": "https://maps.app.goo.gl/example",
+    "activeLocationIds": ["loc-1", "loc-2", "loc-3"],
+    "removedLocationIds": ["loc-4"],
+    "totalWalkingMinutes": 38,
+    "totalDistanceMeters": 2900,
+    "createdAt": "2026-05-07T12:00:00Z",
+    "updatedAt": "2026-05-07T12:30:00Z"
+  },
+  "locations": [
+    {
+      "id": "loc-1",
+      "name": "Blue Bottle Coffee",
+      "address": "66 Mint St, San Francisco, CA",
+      "latitude": 37.7827,
+      "longitude": -122.4079,
+      "placeId": "example-place-1",
+      "status": "active",
+      "createdAt": "2026-05-07T12:00:00Z",
+      "updatedAt": "2026-05-07T12:00:00Z"
+    },
+    {
+      "id": "loc-2",
+      "name": "City Lights Booksellers",
+      "address": "261 Columbus Ave, San Francisco, CA",
+      "latitude": 37.7976,
+      "longitude": -122.4066,
+      "placeId": "example-place-2",
+      "status": "active",
+      "createdAt": "2026-05-07T12:05:00Z",
+      "updatedAt": "2026-05-07T12:05:00Z"
+    }
+  ],
+  "routeLegs": [
+    {
+      "id": "leg-1",
+      "fromLocationId": "loc-1",
+      "toLocationId": "loc-2",
+      "orderIndex": 0,
+      "walkingMinutes": 24,
+      "distanceMeters": 1800,
+      "polyline": "encoded_polyline_example",
+      "createdAt": "2026-05-07T12:10:00Z",
+      "updatedAt": "2026-05-07T12:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 8. Screens and UI Requirements
+
+### Screen 1: Home / Planner Screen
+
+Purpose:
+The main screen where users add locations, manage route order, view removed locations, and see the walking map.
+
+Required elements:
+
+* App title: “WalkList Planner”
+* Short helper text explaining the app
+* Optional Google Maps shared list URL input
+* “Add Location” button
+* “Load Sample Route” button
+* Active route list
+* Removed locations list
+* Map panel
+* Route summary panel showing total walking time and total distance
+* Empty state when there are fewer than 2 locations
+
+### Screen 2: Add Location Modal or Panel
+
+Purpose:
+Allow users to add a location to the route.
+
+Required elements:
+
+* Location name field
+* Address field
+* Save button
+* Cancel button
+* Validation message for missing required fields
+* Error message if geocoding fails
+
+### Screen 3: Active Route Order Panel
+
+Purpose:
+Let users control the order in which active locations are visited.
+
+Required elements:
+
+* Numbered active stops
+* Drag handle or up/down buttons for changing route order
+* “Remove from route” action for each stop
+* Walking time to the next location
+* Visual indication of first and last stop
+* Clear label explaining that order controls change the route sequence, not the location details
+
+### Screen 4: Removed Locations Panel
+
+Purpose:
+Let users restore locations that were removed from the active route.
+
+Required elements:
+
+* List of removed locations
+* “Add back” button for each removed location
+* Empty state when no locations are removed
+
+### Screen 5: Map Panel
+
+Purpose:
+Display locations and walking route.
+
+Required elements:
+
+* Interactive map
+* Markers for active locations
+* Route line connecting active stops
+* Fit map bounds to active locations
+* Marker labels or numbers matching the route order
+
+---
+
+## 9. Functional Requirements
+
+### Location Management
+
+* User can add a location with name and address.
+* User can view all active locations in route order.
+* User can remove an active location from the route.
+* User can restore a removed location.
+* User can change the route order of active locations.
+* Changing route order must not edit the name, address, coordinates, or details of any location.
+* App must save changes to local storage.
+
+### Route Generation
+
+* App generates a walking route using active locations in the current order.
+* App updates the route when active locations change.
+* App shows walking time between consecutive stops.
+* App shows total walking time.
+* App shows total walking distance.
+* App shows a clear message if fewer than 2 active locations are available.
+* App handles route API failures gracefully.
+
+### Map Display
+
+* App shows active location markers.
+* App shows the walking route line.
+* App fits the map viewport to the active route.
+* App updates marker numbering when order changes.
+* App should remain usable on desktop and mobile screen sizes.
+
+### Google Maps Shared List Handling
+
+* MVP must support a source list URL field for reference.
+* MVP must not assume reliable direct parsing of Google Maps shared list data.
+* Users must be able to manually add locations from their shared list.
+* Future versions may add Google Places or Google Maps integration for importing list items.
+
+### Sample Data
+
+* App must include sample route data.
+* User must be able to load the sample route from the empty state or main planner screen.
+* Sample data must include at least 3 locations with names, addresses, coordinates, and route order.
+* Sample data must demonstrate route recalculation, walking times, total walking time, and total distance.
+
+---
+
+## 10. Non-Functional Requirements
+
+### Usability
+
+* The primary workflow should be understandable without instructions.
+* The user should always know whether a location is active or removed.
+* The user should always know that route order controls change stop sequence only.
+* Route updates should feel immediate after list changes.
+* Error messages should be specific and actionable.
+
+### Performance
+
+* Route recalculation should be debounced when users reorder locations rapidly.
+* Local storage reads and writes should be lightweight.
+* The app should remain responsive for lists of up to 20 locations.
+
+### Reliability
+
+* The app should not crash if map or routing APIs fail.
+* The app should preserve manually entered locations in local storage.
+* The app should show fallback messages when walking times cannot be calculated.
+* The app should support a mock mode when Google Maps APIs are not configured.
+
+### Accessibility
+
+* Buttons must have clear labels.
+* Interactive controls should be keyboard-accessible where practical.
+* Form fields should have labels.
+* Color should not be the only indicator of active or removed status.
+* Route order controls should have accessible labels such as “Move [location name] earlier” and “Move [location name] later.”
+
+### Security and Privacy
+
+* Do not store Google account credentials.
+* Do not request unnecessary permissions.
+* Store only route planning data in local storage.
+* Keep API keys in environment variables where applicable.
+* Restrict API keys by domain and API type when deploying beyond Replit preview.
+
+---
+
+## 11. Technical Approach
+
+### Recommended Stack
+
+| Layer      | Recommendation                                   | Notes                                                    |
+| ---------- | ------------------------------------------------ | -------------------------------------------------------- |
+| Frontend   | React                                            | Best fit for an interactive planning UI.                 |
+| Styling    | Tailwind CSS                                     | Fast Replit-friendly styling.                            |
+| Map        | Google Maps JavaScript API                       | Best alignment with the user’s Google Maps list concept. |
+| Routing    | Google Maps Directions API or Routes API         | Use walking mode and ordered waypoints.                  |
+| Geocoding  | Google Maps Geocoding API or Places Autocomplete | Convert addresses into coordinates.                      |
+| Backend    | None for MVP                                     | Use client-side app with local storage.                  |
+| Storage    | Local storage                                    | Store route plans, locations, and order locally.         |
+| Deployment | Replit                                           | Build as a Replit web app.                               |
+
+### API Notes
+
+* Use `VITE_GOOGLE_MAPS_API_KEY` as the environment variable name if using Vite.
+* Do not hardcode API keys.
+* If Google Maps APIs are unavailable during MVP development, use a mock routing service and clearly mark walking times as estimates.
+* For a fully working Google Maps implementation, enable the required APIs in Google Cloud:
+
+  * Maps JavaScript API
+  * Directions API or Routes API
+  * Geocoding API
+  * Places API if using autocomplete
+
+### Suggested Project Structure
+
+```txt
+/
+├── docs/
+│   └── product-brief.md
+├── src/
+│   ├── components/
+│   │   ├── AddLocationForm.jsx
+│   │   ├── MapView.jsx
+│   │   ├── RemovedLocations.jsx
+│   │   ├── RouteList.jsx
+│   │   └── RouteSummary.jsx
+│   ├── data/
+│   │   └── sampleRoute.js
+│   ├── hooks/
+│   │   └── useLocalStorage.js
+│   ├── services/
+│   │   ├── geocodingService.js
+│   │   ├── routingService.js
+│   │   └── storageService.js
+│   ├── utils/
+│   │   ├── routeCalculations.js
+│   │   └── validation.js
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── .env.example
+├── package.json
+└── README.md
+```
+
+---
+
+## 12. Assumptions
+
+* Assumption: The MVP is for a single user planning on one device.
+* Assumption: The app does not need user accounts for the MVP.
+* Assumption: Direct import from Google Maps shared lists is not required in the MVP because Google Maps shared list data may not be easily accessible from a public URL.
+* Assumption: Users can manually add locations from a shared list during the MVP phase.
+* Assumption: Route order is controlled by the user rather than automatically optimized.
+* Assumption: Changing route order means changing the sequence of stops only, not editing location details.
+* Assumption: The first active location is the route start and the last active location is the route end.
+* Assumption: The route is for walking only.
+* Assumption: Local storage is sufficient for the first prototype.
+* Assumption: Google Maps APIs may require configuration outside the app; the app should include clear environment variable setup.
+
+---
+
+## 13. Acceptance Criteria
+
+### Location Entry
+
+* Given the user has no locations, when they add a location with a name and address, then the location appears in the active route list.
+* Given the user submits an empty name or address, when they click save, then the app shows a validation message and does not add the location.
+* Given a location has been added, when the app reloads, then the location remains available from local storage.
+
+### Google Maps Shared List URL
+
+* Given the user pastes a Google Maps shared list URL, when the app saves the route plan, then the URL is stored for reference.
+* Given the source list URL is invalid, when the user tries to save it, then the app shows a validation message.
+* Given the app has a saved source list URL, when the user reloads the page, then the URL is still visible.
+
+### Sample Data
+
+* Given the user opens the app with no data, when they click “Load Sample Route,” then the app loads at least 3 sample locations.
+* Given sample data is loaded, when the app displays the planner, then markers, route order, walking times, total walking time, and total distance are shown.
+* Given the user changes the sample route order, when the route updates, then walking times and route summary update.
+
+### Map Display
+
+* Given the route has at least 2 active locations with coordinates, when the planner loads, then the map displays markers for the active locations.
+* Given active locations are reordered, when the route updates, then marker numbers update to match the new order.
+* Given the map API fails, when the app loads, then the app shows a clear error message instead of crashing.
+
+### Walking Route
+
+* Given there are at least 2 active locations, when the route is generated, then the app displays a walking route line on the map.
+* Given a walking route is generated, when route data is returned, then the app displays walking times between consecutive locations.
+* Given a walking route is generated, when route data is returned, then the app displays total walking time and total distance.
+* Given there are fewer than 2 active locations, when the user views the planner, then the app explains that at least 2 locations are needed.
+
+### Remove and Restore
+
+* Given a location is active, when the user clicks “Remove from route,” then the location moves to the removed locations list.
+* Given a location is removed, when the user clicks “Add back,” then the location returns to the active route list.
+* Given a location is removed or restored, when the active route changes, then the route, walking times, total walking time, and total distance recalculate.
+
+### Change Route Order
+
+* Given there are 3 or more active locations, when the user moves one location earlier or later, then the active route order changes.
+* Given the active route order changes, then the map route and walking times update to reflect the new order.
+* Given the active route order changes, then the location’s name, address, coordinates, and saved details remain unchanged.
+* Given the route order changes, then total walking time and total distance update.
+
+### Persistence
+
+* Given the user edits the route plan, when they refresh the page, then the latest route state is restored from local storage.
+* Given the user loads sample data, when they refresh the page, then the sample route remains until changed or cleared.
+
+### Mobile-Friendly Layout
+
+* Given the user opens the app on a phone-sized screen, when the planner loads, then route controls and map remain usable without horizontal scrolling.
+* Given the user opens the app on desktop, when the planner loads, then route controls and map are visible in a split layout.
+
+---
+
+## 14. Error and Empty States
+
+### Empty State: No Locations
+
+Message:
+“Add at least two locations to create a walking route.”
+
+Actions:
+
+* Add Location
+* Load Sample Route
+
+### Empty State: One Active Location
+
+Message:
+“Add one more location to generate a walking route.”
+
+Action:
+
+* Add Location
+
+### Empty State: No Removed Locations
+
+Message:
+“Removed locations will appear here.”
+
+### Error: Geocoding Failed
+
+Message:
+“We could not find that address. Try a more specific place name or address.”
+
+### Error: Route Failed
+
+Message:
+“We could not generate a walking route for these stops. Check the locations or try a different order.”
+
+### Error: Map Failed
+
+Message:
+“The map could not load. Check the map API key and try again.”
+
+### Error: Missing API Key
+
+Message:
+“Google Maps API key is missing. Add VITE_GOOGLE_MAPS_API_KEY to your Replit environment variables.”
+
+### Error: Invalid Google Maps Shared List URL
+
+Message:
+“Enter a valid Google Maps shared list URL, or leave this field blank.”
+
+---
+
+## 15. Future Enhancements
+
+* Direct Google Maps shared list import if technically feasible.
+* Google Places Autocomplete for easier location entry.
+* Save multiple named route plans.
+* Shareable route links.
+* Export to Google Maps directions.
+* Automatic route optimization.
+* Opening hours awareness.
+* Accessibility-aware routing.
+* Public transit plus walking mixed routes.
+* Collaborative planning with friends.
+* User accounts and cloud sync.
+* Mobile app version.
+* Editing location details after a location has been added.
+
+---
+
+## 16. Replit-Specific AI Coding Instructions
+
+When building this app in Replit:
+
+1. Build a React app with Tailwind CSS.
+2. Keep the first version client-side only.
+3. Use local storage for persistence.
+4. Create reusable components for the map, route list, removed locations, add location form, and route summary.
+5. Use environment variables for any Google Maps API key.
+6. Include `.env.example` with `VITE_GOOGLE_MAPS_API_KEY=your_key_here`.
+7. Do not hardcode secrets.
+8. If the Google Maps API key is missing, show a friendly setup message and allow sample/mock mode.
+9. Implement route state management in React using hooks.
+10. Keep the active route order as the source of truth for routing.
+11. Treat route order changes as sequence changes only. Do not modify location name, address, coordinates, or saved details when a user changes route order.
+12. Recalculate route legs whenever active locations are added, removed, restored, or reordered.
+13. Recalculate total walking time and total distance whenever route legs change.
+14. Use clear loading, error, and empty states.
+15. Make the layout responsive:
+
+    * Desktop: route controls on the left, map on the right.
+    * Mobile: route controls above the map.
+16. Include sample data so the app can be tested immediately.
+17. Keep styling clean and practical, with visible buttons, readable route cards, and numbered stops.
+18. Avoid building authentication, payments, collaboration, admin dashboards, AI recommendations, native mobile apps, or full Google Maps saved list syncing.
+19. Include comments only where they clarify non-obvious logic.
+20. Prioritize a working MVP over advanced polish.
+
+---
+
+## 17. Replit Build Prompt
+
+Build a Replit-ready React app called WalkList Planner.
+
+The app helps users plan a walking route from locations saved in a Google Maps shared list. For the MVP, users can manually add locations from their shared list and paste the shared list URL for reference. The app should show active locations on a map, generate a walking route through them in the current order, display walking time between each pair of consecutive stops, and show total walking time and total distance.
+
+Use React and Tailwind CSS. Store all route data in local storage. Do not add authentication or a backend.
+
+Core features to build:
+
+* Main planner screen with app title, short description, source Google Maps list URL field, active route list, removed locations list, route summary, and map.
+* Add Location form with name and address fields.
+* Validation for required name and address.
+* Validation for the optional Google Maps shared list URL.
+* Active route list with numbered stops.
+* Controls to move each active stop earlier or later in the route.
+* Route order controls must only change the sequence of stops. They must not edit location names, addresses, coordinates, or saved details.
+* Control to remove a stop from the active route.
+* Removed locations section with an “Add back” button for each removed location.
+* Map showing active location markers.
+* Walking route line connecting active locations in order.
+* Walking time between consecutive active locations.
+* Total walking time summary.
+* Total walking distance summary.
+* Automatic route recalculation when locations are added, removed, restored, or reordered.
+* Local storage persistence.
+* Sample route data and a “Load Sample Route” button.
+* Empty states for no locations, one location, and no removed locations.
+* Friendly error states for missing Google Maps API key, failed geocoding, failed routing, failed map load, and invalid shared list URL.
+* Responsive layout that works on desktop and mobile.
+
+Use `VITE_GOOGLE_MAPS_API_KEY` for the Google Maps API key. Include `.env.example`.
+
+If Google Maps APIs are not configured, create a graceful mock mode that still demonstrates the planner using sample coordinates, straight-line map markers if needed, and approximate walking times. Do not crash when API calls fail.
+
+Keep the MVP focused. Do not build login, payments, collaboration, admin dashboards, AI recommendations, native mobile apps, full Google Maps saved list syncing, editing saved location details, multiple saved route plans, exports, or public sharing.
+
+Source grounding document used for structure and output requirements: 
