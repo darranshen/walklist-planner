@@ -43,6 +43,10 @@ export function useRouteState() {
         parsed.isMockMode = !hasApiKey;
         parsed.routeWarning = parsed.routeWarning ?? null;
         setState(parsed);
+        // Always recalculate on load so transit/error detection is fresh
+        if (parsed.plan.activeLocationIds.length >= 2) {
+          scheduleRouteUpdate(parsed.plan.activeLocationIds, parsed.locations, !hasApiKey);
+        }
       } catch (e) {
         setState(emptyState(!hasApiKey));
       }

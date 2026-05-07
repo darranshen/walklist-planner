@@ -1,6 +1,6 @@
 import { Location, RouteLeg, LegTransitStep, TransitMode } from "../types/route";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface RouteListProps {
@@ -78,11 +78,23 @@ function LegConnector({
   isLast: boolean;
 }) {
   const hasTransit = leg?.transitSteps && leg.transitSteps.length > 0;
+  const hasError = !!leg?.routeError;
 
   return (
     <div className="ml-6 border-l-2 border-dashed border-border pl-6 py-2 min-h-[40px] flex flex-col justify-center gap-2">
       {!isLast ? (
         <>
+          {hasError && (
+            <div className="flex flex-col gap-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>No walking route found</span>
+              </div>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 pl-0.5">
+                This leg may require a ferry, train, or other transit. Check Google Maps for options.
+              </p>
+            </div>
+          )}
           {hasTransit && (
             <div className="flex flex-col gap-1.5">
               {leg!.transitSteps!.map((step, i) => (
@@ -97,7 +109,7 @@ function LegConnector({
             {leg ? (
               <>
                 {leg.walkingMinutes} min ({(leg.distanceMeters / 1609.34).toFixed(1)} mi) to next
-                {isMockMode && <span className="text-[10px] opacity-70">(approx.)</span>}
+                {(isMockMode || hasError) && <span className="text-[10px] opacity-70">(approx.)</span>}
               </>
             ) : (
               <span className="opacity-50">Calculating...</span>

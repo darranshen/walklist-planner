@@ -1,9 +1,14 @@
-import { Location, LegTransitStep, TransitMode } from '../types/route';
+import { Location, LegTransitStep, TransitMode, RouteLeg } from '../types/route';
 import { getHaversineDistance } from '../lib/haversine';
-import { RouteLeg } from '../types/route';
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+}
+
+// The JS SDK uses step.instructions; the REST API uses step.html_instructions
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stepInstruction(step: any): string {
+  return stripHtml(step.instructions || step.html_instructions || '');
 }
 
 function detectTransitMode(
@@ -25,9 +30,9 @@ function detectTransitMode(
 function extractTransitSteps(steps: any[]): LegTransitStep[] {
   const result: LegTransitStep[] = [];
   for (const step of steps) {
-    const mode: string = step.travel_mode || '';
-    const instruction = stripHtml(step.html_instructions || '');
-    const isTransit = mode.toUpperCase() !== 'WALKING';
+    const mode: string = (step.travel_mode || '').toString().toUpperCase();
+    const instruction = stepInstruction(step);
+    const isTransit = mode !== 'WALKING';
     const isFerryInstruction = instruction.toLowerCase().includes('ferry');
 
     if (isTransit || isFerryInstruction) {
@@ -46,6 +51,70 @@ function extractTransitSteps(steps: any[]): LegTransitStep[] {
   return result;
 }
 
+const LONG_WALK_THRESHOLD_MINUTES = 90; // flag legs > 90 min as unreasonably long
+
+function haversineLeg(from: Location, to: Location, index: number): RouteLeg {
+  const distanceMeters =
+    from.latitude != null && from.longitude != null && to.latitude != null && to.longitude != null
+      ? getHaversineDistance(from.latitude, from.longitude, to.latitude, to.longitude)
+      : 0;
+  return {
+    id: `leg-${from.id}-${to.id}`,
+    fromLocationId: from.id,
+    toLocationId: to.id,
+    orderIndex: index,
+    walkingMinutes: Math.round(distanceMeters / 80),
+    distanceMeters,
+  };
+}
+
+async function routeSingleLeg(
+  directionsService: google.maps.DirectionsService,
+  from: Location,
+  to: Location,
+  index: number,
+): Promise<RouteLeg> {
+  try {
+    const result = await directionsService.route({
+      origin: { lat: from.latitude!, lng: from.longitude! },
+      destination: { lat: to.latitude!, lng: to.longitude! },
+      travelMode: window.google.maps.TravelMode.WALKING,
+    });
+
+    const leg = result.routes[0]?.legs[0];
+    if (!leg) throw new Error('No leg in result');
+
+    const transitSteps = extractTransitSteps(leg.steps || []);
+    const walkingMinutes = Math.round((leg.duration?.value || 0) / 60);
+
+    console.log(`[routing] leg ${index} steps:`, (leg.steps || []).map((s: any) => ({
+      mode: (s.travel_mode || '').toString(),
+      instruction: stepInstruction(s),
+    })));
+
+    const isUnreasonablyLong = walkingMinutes > LONG_WALK_THRESHOLD_MINUTES && transitSteps.length === 0;
+
+    return {
+      id: `leg-${from.id}-${to.id}`,
+      fromLocationId: from.id,
+      toLocationId: to.id,
+      orderIndex: index,
+      walkingMinutes,
+      distanceMeters: leg.distance?.value || 0,
+      transitSteps: transitSteps.length > 0 ? transitSteps : undefined,
+      routeError: isUnreasonablyLong
+        ? 'This is a very long walking leg. A ferry, train, or other transit may be needed.'
+        : undefined,
+    };
+  } catch (e) {
+    console.warn(`[routing] leg ${index} (${from.name} → ${to.name}) has no walking route:`, e);
+    return {
+      ...haversineLeg(from, to, index),
+      routeError: 'No walking route found. This leg may require a ferry or other transit.',
+    };
+  }
+}
+
 export async function calculateRoute(
   locations: Location[],
   isMockMode: boolean
@@ -55,42 +124,27 @@ export async function calculateRoute(
   if (isMockMode) {
     const legs: RouteLeg[] = [];
     for (let i = 0; i < locations.length - 1; i++) {
-      const from = locations[i];
-      const to = locations[i + 1];
-
-      let distanceMeters = 0;
-      let walkingMinutes = 0;
-
-      if (from.latitude != null && from.longitude != null && to.latitude != null && to.longitude != null) {
-        distanceMeters = getHaversineDistance(from.latitude, from.longitude, to.latitude, to.longitude);
-        walkingMinutes = Math.round(distanceMeters / 80);
-      }
-
-      legs.push({
-        id: `leg-${from.id}-${to.id}`,
-        fromLocationId: from.id,
-        toLocationId: to.id,
-        orderIndex: i,
-        walkingMinutes,
-        distanceMeters,
-      });
+      legs.push(haversineLeg(locations[i], locations[i + 1], i));
     }
     return legs;
-  } else {
-    if (!window.google || !window.google.maps) {
-      throw new Error("Google Maps not loaded");
-    }
+  }
 
-    const directionsService = new window.google.maps.DirectionsService();
+  if (!window.google || !window.google.maps) {
+    throw new Error('Google Maps not loaded');
+  }
 
-    const origin = locations[0];
-    const destination = locations[locations.length - 1];
-    const waypoints = locations.slice(1, locations.length - 1).map(loc => ({
-      location: { lat: loc.latitude!, lng: loc.longitude! },
-      stopover: true,
-    }));
+  const directionsService = new window.google.maps.DirectionsService();
 
+  // First: try the full multi-stop route in one request (faster, one API call)
+  if (locations.length <= 10) {
     try {
+      const origin = locations[0];
+      const destination = locations[locations.length - 1];
+      const waypoints = locations.slice(1, locations.length - 1).map(loc => ({
+        location: { lat: loc.latitude!, lng: loc.longitude! },
+        stopover: true,
+      }));
+
       const result = await directionsService.route({
         origin: { lat: origin.latitude!, lng: origin.longitude! },
         destination: { lat: destination.latitude!, lng: destination.longitude! },
@@ -98,31 +152,47 @@ export async function calculateRoute(
         travelMode: window.google.maps.TravelMode.WALKING,
       });
 
-      const legs: RouteLeg[] = [];
       const route = result.routes[0];
-
-      if (route && route.legs) {
+      if (route?.legs) {
+        const legs: RouteLeg[] = [];
         for (let i = 0; i < route.legs.length; i++) {
           const leg = route.legs[i];
           const from = locations[i];
           const to = locations[i + 1];
           const transitSteps = extractTransitSteps(leg.steps || []);
+          const walkingMinutes = Math.round((leg.duration?.value || 0) / 60);
+          const isUnreasonablyLong = walkingMinutes > LONG_WALK_THRESHOLD_MINUTES && transitSteps.length === 0;
+
+          console.log(`[routing] full-route leg ${i} (${walkingMinutes}min):`, (leg.steps || []).map((s: any) => ({
+            mode: (s.travel_mode || '').toString(),
+            instruction: stepInstruction(s),
+          })));
 
           legs.push({
             id: `leg-${from.id}-${to.id}`,
             fromLocationId: from.id,
             toLocationId: to.id,
             orderIndex: i,
-            walkingMinutes: Math.round((leg.duration?.value || 0) / 60),
+            walkingMinutes,
             distanceMeters: leg.distance?.value || 0,
             transitSteps: transitSteps.length > 0 ? transitSteps : undefined,
+            routeError: isUnreasonablyLong
+              ? 'This is a very long walking leg. A ferry, train, or other transit may be needed.'
+              : undefined,
           });
         }
+        return legs;
       }
-      return legs;
-    } catch (e) {
-      console.error("Directions API failed:", e);
-      throw e;
+    } catch (fullRouteErr) {
+      console.warn('[routing] Full-route request failed, trying legs individually:', fullRouteErr);
     }
   }
+
+  // Fallback: calculate each leg individually so one bad leg doesn't break the rest
+  const legs: RouteLeg[] = [];
+  for (let i = 0; i < locations.length - 1; i++) {
+    const leg = await routeSingleLeg(directionsService, locations[i], locations[i + 1], i);
+    legs.push(leg);
+  }
+  return legs;
 }

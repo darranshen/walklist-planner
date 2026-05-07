@@ -28,6 +28,7 @@ export interface RouteLeg {
   distanceMeters: number;
   polyline?: string;
   transitSteps?: LegTransitStep[];
+  routeError?: string;
 }
 
 export interface RoutePlan {
