@@ -10,6 +10,15 @@ export interface Location {
   updatedAt: string;
 }
 
+export type TransitMode = 'FERRY' | 'SUBWAY' | 'RAIL' | 'BUS' | 'TRAM' | 'TRANSIT';
+
+export interface LegTransitStep {
+  mode: TransitMode;
+  label: string;
+  durationMinutes: number;
+  distanceMeters: number;
+}
+
 export interface RouteLeg {
   id: string;
   fromLocationId: string;
@@ -18,6 +27,7 @@ export interface RouteLeg {
   walkingMinutes: number;
   distanceMeters: number;
   polyline?: string;
+  transitSteps?: LegTransitStep[];
 }
 
 export interface RoutePlan {
