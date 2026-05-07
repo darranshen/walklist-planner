@@ -29,7 +29,7 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
 
   useEffect(() => {
     if (!isMockMode) {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
       loadGoogleMaps(apiKey)
         .then(() => setGoogleMapsLoaded(true))
         .catch(() => {

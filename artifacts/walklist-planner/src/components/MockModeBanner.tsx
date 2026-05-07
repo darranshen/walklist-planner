@@ -15,7 +15,7 @@ export function MockModeBanner({ isMockMode }: MockModeBannerProps) {
       <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
       <div className="flex-1 text-sm">
         <p>
-          <strong>Google Maps API key is missing.</strong> Add <code>VITE_GOOGLE_MAPS_API_KEY</code> to your environment to enable real maps and routing. Showing demo route with estimated times.
+          <strong>Google Maps API key is missing.</strong> Add <code>VITE_GOOGLE_API_KEY</code> to your environment to enable real maps and routing. Showing demo route with estimated times.
         </p>
       </div>
       <button 

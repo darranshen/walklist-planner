@@ -35,7 +35,7 @@ export function useRouteState() {
   // Initialize
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    const hasApiKey = !!import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const hasApiKey = !!import.meta.env.VITE_GOOGLE_API_KEY;
 
     if (stored) {
       try {
@@ -265,7 +265,7 @@ export function useRouteState() {
   const loadSampleRoute = useCallback(() => {
     setState({
       ...sampleRouteState,
-      isMockMode: !import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      isMockMode: !import.meta.env.VITE_GOOGLE_API_KEY,
       routeWarning: null,
     });
   }, []);
@@ -285,7 +285,7 @@ export function useRouteState() {
   }, []);
 
   const clearAll = useCallback(() => {
-    setState(emptyState(!import.meta.env.VITE_GOOGLE_MAPS_API_KEY));
+    setState(emptyState(!import.meta.env.VITE_GOOGLE_API_KEY));
   }, []);
 
   const setMockMode = useCallback((isMock: boolean) => {
