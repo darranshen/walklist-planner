@@ -8,9 +8,10 @@ interface MapPanelProps {
   activeLocations: Location[];
   legs: RouteLeg[];
   isMockMode: boolean;
+  onApiFailure: () => void;
 }
 
-export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
+export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -32,12 +33,13 @@ export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
       loadGoogleMaps(apiKey)
         .then(() => setGoogleMapsLoaded(true))
         .catch(() => {
-          setMapError("The map could not load. Check the map API key and try again.");
+          setMapError("Google Maps failed to load. Switching to offline map.");
+          onApiFailure();
         });
     }
-  }, [isMockMode]);
+  }, [isMockMode, onApiFailure]);
 
-  // Setup Leaflet map
+  // Setup Leaflet map (mock mode or after API failure)
   useEffect(() => {
     if (!isMockMode || !containerRef.current) return;
 
@@ -92,6 +94,9 @@ export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
     } else if (activeLocations.length === 1 && activeLocations[0].latitude && activeLocations[0].longitude) {
       map.setView([activeLocations[0].latitude, activeLocations[0].longitude], 15);
     }
+
+    // Force Leaflet to recalculate size after becoming visible
+    setTimeout(() => map.invalidateSize(), 50);
   }, [isMockMode, activeLocations, legs]);
 
   // Setup Google Map
@@ -181,7 +186,7 @@ export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
             if (status === google.maps.DirectionsStatus.OK && result) {
               renderer.setDirections(result);
             } else {
-              // Fallback to straight-line polylines if Directions fails
+              // Fallback to straight-line polylines if Directions API fails
               renderer.setMap(null);
               directionsRendererRef.current = null;
               for (let i = 0; i < activeLocations.length - 1; i++) {
@@ -215,7 +220,7 @@ export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
     }
   }, [isMockMode, googleMapsLoaded, activeLocations, legs]);
 
-  if (mapError) {
+  if (mapError && !isMockMode) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-muted/50 text-muted-foreground p-8 text-center">
         <p>{mapError}</p>
@@ -228,14 +233,14 @@ export function MapPanel({ activeLocations, legs, isMockMode }: MapPanelProps) {
       {activeLocations.length < 2 && (
         <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center p-8 text-center">
           <div className="bg-background/80 backdrop-blur-sm border border-border text-foreground px-6 py-4 rounded-lg shadow-sm">
-            <p className="font-medium">Add locations to see your route on the map.</p>
+            <p className="font-medium">Add at least two locations to see your route on the map.</p>
           </div>
         </div>
       )}
 
       {isMockMode && (
         <div className="absolute top-4 right-4 z-[400] bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm uppercase tracking-wider">
-          Mock Mode
+          Offline Map
         </div>
       )}
 

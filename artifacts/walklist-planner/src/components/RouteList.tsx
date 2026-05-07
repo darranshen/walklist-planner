@@ -30,7 +30,7 @@ export function RouteList({
         <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wider mb-4">Active Route (0 stops)</h2>
         <Card className="p-8 text-center border-dashed bg-muted/30">
           <MapPin className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground mb-4">Add locations to see your route.</p>
+          <p className="text-sm text-muted-foreground mb-4">Add at least two locations to generate a walking route.</p>
           <div className="flex flex-col gap-2">
             <Button size="sm" onClick={onAddClick} data-testid="button-empty-add">Add Location</Button>
             <Button size="sm" variant="outline" onClick={onLoadSample} data-testid="button-empty-sample">Load Sample Route</Button>

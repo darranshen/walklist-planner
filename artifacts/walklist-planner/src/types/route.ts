@@ -37,4 +37,5 @@ export interface RouteState {
   locations: Record<string, Location>;
   legs: RouteLeg[];
   isMockMode: boolean;
+  routeWarning: string | null;
 }

@@ -1,9 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RouteState, Location, RouteLeg } from '../types/route';
+import { RouteState, Location } from '../types/route';
 import { sampleRouteState } from '../data/sampleRoute';
 import { calculateRoute } from '../services/routing';
 
 const STORAGE_KEY = 'walklist-route-state';
+
+function emptyState(isMockMode: boolean): RouteState {
+  return {
+    plan: {
+      id: crypto.randomUUID(),
+      name: 'New WalkList',
+      sourceListUrl: '',
+      activeLocationIds: [],
+      removedLocationIds: [],
+      totalWalkingMinutes: 0,
+      totalDistanceMeters: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    locations: {},
+    legs: [],
+    isMockMode,
+    routeWarning: null,
+  };
+}
 
 export function useRouteState() {
   const [state, setState] = useState<RouteState | null>(null);
@@ -19,45 +39,16 @@ export function useRouteState() {
       try {
         const parsed = JSON.parse(stored) as RouteState;
         parsed.isMockMode = !hasApiKey;
+        parsed.routeWarning = parsed.routeWarning ?? null;
         setState(parsed);
       } catch (e) {
-        setState({
-          plan: {
-            id: crypto.randomUUID(),
-            name: 'New WalkList',
-            sourceListUrl: '',
-            activeLocationIds: [],
-            removedLocationIds: [],
-            totalWalkingMinutes: 0,
-            totalDistanceMeters: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          locations: {},
-          legs: [],
-          isMockMode: !hasApiKey,
-        });
+        setState(emptyState(!hasApiKey));
       }
     } else {
       if (!hasApiKey) {
         setState(sampleRouteState);
       } else {
-        setState({
-          plan: {
-            id: crypto.randomUUID(),
-            name: 'New WalkList',
-            sourceListUrl: '',
-            activeLocationIds: [],
-            removedLocationIds: [],
-            totalWalkingMinutes: 0,
-            totalDistanceMeters: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          locations: {},
-          legs: [],
-          isMockMode: false,
-        });
+        setState(emptyState(false));
       }
     }
   }, []);
@@ -90,7 +81,6 @@ export function useRouteState() {
 
     try {
       const legs = await calculateRoute(activeLocs, isMockMode);
-
       const totalTime = legs.reduce((sum, leg) => sum + leg.walkingMinutes, 0);
       const totalDist = legs.reduce((sum, leg) => sum + leg.distanceMeters, 0);
 
@@ -99,6 +89,7 @@ export function useRouteState() {
         return {
           ...prev,
           legs,
+          routeWarning: null,
           plan: {
             ...prev.plan,
             totalWalkingMinutes: totalTime,
@@ -121,6 +112,8 @@ export function useRouteState() {
             ...prev,
             isMockMode: true,
             legs: mockLegs,
+            routeWarning:
+              'Live walking directions are unavailable. Showing estimated straight-line times.',
             plan: {
               ...prev.plan,
               totalWalkingMinutes: totalTime,
@@ -256,7 +249,11 @@ export function useRouteState() {
   }, []);
 
   const loadSampleRoute = useCallback(() => {
-    setState({ ...sampleRouteState, isMockMode: !import.meta.env.VITE_GOOGLE_MAPS_API_KEY });
+    setState({
+      ...sampleRouteState,
+      isMockMode: !import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+      routeWarning: null,
+    });
   }, []);
 
   const updateSourceUrl = useCallback((url: string) => {
@@ -274,21 +271,26 @@ export function useRouteState() {
   }, []);
 
   const clearAll = useCallback(() => {
-    setState({
-      plan: {
-        id: crypto.randomUUID(),
-        name: 'New WalkList',
-        sourceListUrl: '',
-        activeLocationIds: [],
-        removedLocationIds: [],
-        totalWalkingMinutes: 0,
-        totalDistanceMeters: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      locations: {},
-      legs: [],
-      isMockMode: !import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    setState(emptyState(!import.meta.env.VITE_GOOGLE_MAPS_API_KEY));
+  }, []);
+
+  const setMockMode = useCallback((isMock: boolean) => {
+    setState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        isMockMode: isMock,
+        routeWarning: isMock
+          ? 'Google Maps failed to load. Using the offline map with estimated walking times.'
+          : null,
+      };
+    });
+  }, []);
+
+  const dismissRouteWarning = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      return { ...prev, routeWarning: null };
     });
   }, []);
 
@@ -303,6 +305,8 @@ export function useRouteState() {
       loadSampleRoute,
       updateSourceUrl,
       clearAll,
+      setMockMode,
+      dismissRouteWarning,
     },
   };
 }

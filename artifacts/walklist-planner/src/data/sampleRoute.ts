@@ -93,4 +93,5 @@ export const sampleRouteState: RouteState = {
     },
   ],
   isMockMode: true,
+  routeWarning: null,
 };

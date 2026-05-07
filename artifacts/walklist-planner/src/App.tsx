@@ -2,6 +2,7 @@ import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRouteState } from "./hooks/useRouteState";
+import { X } from "lucide-react";
 
 // Components
 import { Header } from "./components/Header";
@@ -35,21 +36,34 @@ function WalkListApp() {
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-background">
       <MockModeBanner isMockMode={state.isMockMode} />
-      
+
+      {state.routeWarning && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-sm">
+          <span className="flex-1">{state.routeWarning}</span>
+          <button
+            onClick={actions.dismissRouteWarning}
+            className="p-0.5 rounded hover:bg-amber-100 transition-colors flex-shrink-0"
+            aria-label="Dismiss warning"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Left Panel - Controls */}
         <div className="w-full md:w-[400px] flex flex-col h-full border-r border-border bg-card z-10 shadow-sm flex-shrink-0">
           <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6 relative">
             <Header />
-            <SourceUrlField 
-              initialUrl={state.plan.sourceListUrl} 
-              onUpdate={actions.updateSourceUrl} 
+            <SourceUrlField
+              initialUrl={state.plan.sourceListUrl}
+              onUpdate={actions.updateSourceUrl}
             />
-            <ActionButtons 
-              onAddClick={() => setIsAddModalOpen(true)} 
-              onLoadSample={actions.loadSampleRoute} 
+            <ActionButtons
+              onAddClick={() => setIsAddModalOpen(true)}
+              onLoadSample={actions.loadSampleRoute}
             />
-            <RouteList 
+            <RouteList
               activeLocations={activeLocations}
               legs={state.legs}
               isMockMode={state.isMockMode}
@@ -59,11 +73,11 @@ function WalkListApp() {
               onAddClick={() => setIsAddModalOpen(true)}
               onLoadSample={actions.loadSampleRoute}
             />
-            <RemovedLocations 
-              locations={removedLocations} 
-              onRestore={actions.restoreLocation} 
+            <RemovedLocations
+              locations={removedLocations}
+              onRestore={actions.restoreLocation}
             />
-            <RouteSummary 
+            <RouteSummary
               totalMinutes={state.plan.totalWalkingMinutes}
               totalMeters={state.plan.totalDistanceMeters}
               stopCount={activeLocations.length}
@@ -72,20 +86,21 @@ function WalkListApp() {
           </div>
           <InfoBar />
         </div>
-        
+
         {/* Right Panel - Map */}
         <div className="flex-1 h-[50vh] md:h-full relative bg-muted z-0">
-          <MapPanel 
+          <MapPanel
             activeLocations={activeLocations}
             legs={state.legs}
             isMockMode={state.isMockMode}
+            onApiFailure={() => actions.setMockMode(true)}
           />
         </div>
       </div>
 
-      <AddLocationModal 
-        open={isAddModalOpen} 
-        onOpenChange={setIsAddModalOpen} 
+      <AddLocationModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
         onAdd={actions.addLocation}
         isMockMode={state.isMockMode}
       />
