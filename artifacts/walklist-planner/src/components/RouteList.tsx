@@ -66,7 +66,7 @@ export function RouteList({
 
           return (
             <div key={loc.id} className="relative">
-              <Card className={`p-3 pr-14 transition-all hover:border-primary/30 ${
+              <Card className={`p-4 pr-14 min-h-[86px] transition-all hover:border-primary/30 ${
                 isFirst ? 'border-primary/20 bg-primary/5' : ''
               } ${isLast && activeLocations.length > 1 ? 'border-border bg-card' : ''}`}>
                 <div className="flex items-start gap-3">
