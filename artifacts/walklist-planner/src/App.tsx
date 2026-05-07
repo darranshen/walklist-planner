@@ -58,6 +58,16 @@ function WalkListApp() {
             <SourceUrlField
               initialUrl={state.plan.sourceListUrl}
               onUpdate={actions.updateSourceUrl}
+              onImport={(locs) =>
+                actions.bulkAddLocations(
+                  locs.map((l) => ({
+                    name: l.name,
+                    address: l.address,
+                    latitude: l.latitude,
+                    longitude: l.longitude,
+                  })),
+                )
+              }
             />
             <ActionButtons
               onAddClick={() => setIsAddModalOpen(true)}

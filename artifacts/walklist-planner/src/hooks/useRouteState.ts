@@ -301,6 +301,34 @@ export function useRouteState() {
     });
   }, []);
 
+  const bulkAddLocations = useCallback((
+    incoming: Array<Omit<Location, 'id' | 'status' | 'createdAt' | 'updatedAt'>>,
+  ) => {
+    if (!incoming.length) return;
+    const now = new Date().toISOString();
+    const newEntries: [string, Location][] = incoming.map(loc => {
+      const id = crypto.randomUUID();
+      return [id, { ...loc, id, status: 'active' as const, createdAt: now, updatedAt: now }];
+    });
+
+    setState(prev => {
+      if (!prev) return prev;
+      const newLocs: Record<string, Location> = { ...prev.locations };
+      const addedIds: string[] = [];
+      for (const [id, loc] of newEntries) {
+        newLocs[id] = loc;
+        addedIds.push(id);
+      }
+      const newActiveIds = [...prev.plan.activeLocationIds, ...addedIds];
+      scheduleRouteUpdate(newActiveIds, newLocs, prev.isMockMode);
+      return {
+        ...prev,
+        locations: newLocs,
+        plan: { ...prev.plan, activeLocationIds: newActiveIds, updatedAt: now },
+      };
+    });
+  }, []);
+
   const dismissRouteWarning = useCallback(() => {
     setState(prev => {
       if (!prev) return prev;
@@ -312,6 +340,7 @@ export function useRouteState() {
     state,
     actions: {
       addLocation,
+      bulkAddLocations,
       removeLocation,
       restoreLocation,
       moveLocationUp,
