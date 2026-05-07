@@ -4,6 +4,7 @@ import { sampleRouteState } from '../data/sampleRoute';
 import { calculateRoute } from '../services/routing';
 
 const STORAGE_KEY = 'walklist-route-state';
+const ROUTE_DEBOUNCE_MS = 400;
 
 function emptyState(isMockMode: boolean): RouteState {
   return {
@@ -28,7 +29,8 @@ function emptyState(isMockMode: boolean): RouteState {
 export function useRouteState() {
   const [state, setState] = useState<RouteState | null>(null);
   const isInitialMount = useRef(true);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const routeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize
   useEffect(() => {
@@ -61,16 +63,28 @@ export function useRouteState() {
     }
 
     if (state) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
+      if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = setTimeout(() => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       }, 300);
     }
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
     };
   }, [state]);
+
+  const scheduleRouteUpdate = (
+    activeIds: string[],
+    locs: Record<string, Location>,
+    isMockMode: boolean,
+  ) => {
+    if (routeDebounceRef.current) clearTimeout(routeDebounceRef.current);
+    routeDebounceRef.current = setTimeout(
+      () => updateRouteTotals(activeIds, locs, isMockMode),
+      ROUTE_DEBOUNCE_MS,
+    );
+  };
 
   const updateRouteTotals = async (
     activeIds: string[],
@@ -128,7 +142,7 @@ export function useRouteState() {
     }
   };
 
-  const addLocation = useCallback(async (
+  const addLocation = useCallback((
     location: Omit<Location, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
   ) => {
     const id = crypto.randomUUID();
@@ -146,7 +160,7 @@ export function useRouteState() {
       const newLocs: Record<string, Location> = { ...prev.locations, [id]: newLocation };
       const newActiveIds = [...prev.plan.activeLocationIds, id];
 
-      setTimeout(() => updateRouteTotals(newActiveIds, newLocs, prev.isMockMode), 10);
+      scheduleRouteUpdate(newActiveIds, newLocs, prev.isMockMode);
 
       return {
         ...prev,
@@ -170,7 +184,7 @@ export function useRouteState() {
       const newActiveIds = prev.plan.activeLocationIds.filter(locId => locId !== id);
       const newRemovedIds = [...prev.plan.removedLocationIds, id];
 
-      setTimeout(() => updateRouteTotals(newActiveIds, newLocs, prev.isMockMode), 10);
+      scheduleRouteUpdate(newActiveIds, newLocs, prev.isMockMode);
 
       return {
         ...prev,
@@ -195,7 +209,7 @@ export function useRouteState() {
       const newRemovedIds = prev.plan.removedLocationIds.filter(locId => locId !== id);
       const newActiveIds = [...prev.plan.activeLocationIds, id];
 
-      setTimeout(() => updateRouteTotals(newActiveIds, newLocs, prev.isMockMode), 10);
+      scheduleRouteUpdate(newActiveIds, newLocs, prev.isMockMode);
 
       return {
         ...prev,
@@ -216,7 +230,7 @@ export function useRouteState() {
       const newActiveIds = [...prev.plan.activeLocationIds];
       [newActiveIds[index - 1], newActiveIds[index]] = [newActiveIds[index], newActiveIds[index - 1]];
 
-      setTimeout(() => updateRouteTotals(newActiveIds, prev.locations, prev.isMockMode), 10);
+      scheduleRouteUpdate(newActiveIds, prev.locations, prev.isMockMode);
 
       return {
         ...prev,
@@ -235,7 +249,7 @@ export function useRouteState() {
       const newActiveIds = [...prev.plan.activeLocationIds];
       [newActiveIds[index + 1], newActiveIds[index]] = [newActiveIds[index], newActiveIds[index + 1]];
 
-      setTimeout(() => updateRouteTotals(newActiveIds, prev.locations, prev.isMockMode), 10);
+      scheduleRouteUpdate(newActiveIds, prev.locations, prev.isMockMode);
 
       return {
         ...prev,

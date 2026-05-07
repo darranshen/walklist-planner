@@ -8,6 +8,25 @@ interface SourceUrlFieldProps {
   onUpdate: (url: string) => void;
 }
 
+const GOOGLE_MAPS_HOSTS = [
+  "maps.app.goo.gl",
+  "maps.google.com",
+  "www.google.com",
+  "goo.gl",
+];
+
+function isGoogleMapsUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    if (!GOOGLE_MAPS_HOSTS.includes(url.hostname)) return false;
+    if (url.hostname === "www.google.com" && !url.pathname.startsWith("/maps")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function SourceUrlField({ initialUrl, onUpdate }: SourceUrlFieldProps) {
   const [value, setValue] = useState(initialUrl);
   const [error, setError] = useState<string | null>(null);
@@ -23,16 +42,11 @@ export function SourceUrlField({ initialUrl, onUpdate }: SourceUrlFieldProps) {
       return;
     }
 
-    try {
-      const url = new URL(value);
-      if (url.protocol === "http:" || url.protocol === "https:") {
-        setError(null);
-        onUpdate(value.trim());
-      } else {
-        setError("Enter a valid Google Maps shared list URL, or leave this field blank.");
-      }
-    } catch {
-      setError("Enter a valid Google Maps shared list URL, or leave this field blank.");
+    if (isGoogleMapsUrl(value.trim())) {
+      setError(null);
+      onUpdate(value.trim());
+    } else {
+      setError("Paste a Google Maps shared list URL (e.g. https://maps.app.goo.gl/…), or leave blank.");
     }
   };
 
