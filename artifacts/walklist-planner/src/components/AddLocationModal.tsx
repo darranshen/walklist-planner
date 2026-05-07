@@ -28,7 +28,7 @@ export function AddLocationModal({ open, onOpenChange, onAdd, isMockMode }: AddL
 
     try {
       const geoResult = await geocodeAddress(address, isMockMode);
-      
+
       onAdd({
         name: name.trim(),
         address: address.trim(),
@@ -36,12 +36,13 @@ export function AddLocationModal({ open, onOpenChange, onAdd, isMockMode }: AddL
         longitude: geoResult?.lng ?? null,
         placeId: geoResult?.placeId,
       });
-      
+
       setName("");
       setAddress("");
       onOpenChange(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to geocode address");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to geocode address";
+      setError(message);
     } finally {
       setIsGeocoding(false);
     }

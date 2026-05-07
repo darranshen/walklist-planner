@@ -59,12 +59,10 @@ function WalkListApp() {
               onAddClick={() => setIsAddModalOpen(true)}
               onLoadSample={actions.loadSampleRoute}
             />
-            {removedLocations.length > 0 && (
-              <RemovedLocations 
-                locations={removedLocations} 
-                onRestore={actions.restoreLocation} 
-              />
-            )}
+            <RemovedLocations 
+              locations={removedLocations} 
+              onRestore={actions.restoreLocation} 
+            />
             <RouteSummary 
               totalMinutes={state.plan.totalWalkingMinutes}
               totalMeters={state.plan.totalDistanceMeters}
