@@ -1,0 +1,646 @@
+# Product Brief Addendum
+
+## Feature Name
+
+Drag-and-Drop Route Reordering
+
+## Feature Type
+
+New MVP Enhancement
+
+## One-Sentence Description
+
+Allow users to drag active route locations to a new position in the route list so they can quickly reorder stops without clicking up or down one step at a time.
+
+---
+
+## 1. Feature Overview
+
+### Problem
+
+The current route ordering experience relies on moving locations up or down one position at a time. This works for small lists, but it becomes frustrating when a user wants to move a stop across several positions, such as moving the last stop to the beginning or placing a location in the middle of the route.
+
+### Solution
+
+Add drag-and-drop sorting to the active route list. Users should be able to grab a location card, drag it to a new position, and drop it anywhere in the active route order. Once dropped, the app should update the route order, map markers, walking route, walking times, total walking time, and total distance.
+
+### Primary User
+
+A user planning a walking route across several saved locations who wants to quickly test different route sequences.
+
+### Why This Feature Should Exist
+
+Route planning is an iterative activity. Users often need to compare several possible stop orders before choosing the best walking route. Drag-and-drop makes route editing faster and more intuitive than repeatedly clicking “Move earlier” or “Move later.”
+
+---
+
+## 2. Goals and Non-Goals
+
+### Product Goals
+
+This feature should help users:
+
+* Quickly move a location to any position in the active route list.
+* Compare route sequences with less manual clicking.
+* Understand that dragging changes route order only, not location details.
+* See the map route and walking times update after the new order is confirmed.
+* Use fallback controls if drag-and-drop is difficult on their device.
+
+### Business Goals
+
+This feature should help the creator:
+
+* Improve the perceived polish and usability of the route planner.
+* Make the app feel more like a modern interactive planning tool.
+* Reduce friction for users testing different walking route options.
+
+### Non-Goals
+
+This feature will not include:
+
+* Editing location names, addresses, coordinates, or saved details.
+* Dragging locations between multiple saved route plans.
+* Dragging locations onto the map to change their geographic position.
+* Automatic route optimization.
+* Multi-user collaborative dragging.
+* Complex animations beyond basic drag feedback.
+
+---
+
+## 3. Users and Use Cases
+
+### Primary User
+
+#### User Type
+
+Walking route planner
+
+#### Description
+
+A person organizing a walking route across multiple saved locations who wants to quickly adjust the order of stops.
+
+#### Goals
+
+* Move a stop several positions at once.
+* Try different route sequences quickly.
+* See the route update after reordering.
+* Preserve all original location details while changing only route order.
+
+#### Pain Points
+
+* Moving a stop one position at a time is slow.
+* Large route lists become tedious to reorganize.
+* Users may worry that changing order could accidentally edit or delete location details.
+* Mobile users need controls that still work if dragging is difficult.
+
+### Core Use Cases
+
+* Drag a stop from the bottom of the route to the top.
+* Drag a stop from the middle of the route to a different position.
+* Drop a stop into a new order and see the route recalculate.
+* Use up/down buttons as a fallback if drag-and-drop is not convenient.
+
+### Jobs To Be Done
+
+* When I am planning a route with many stops, I want to drag a location directly to a new position, so I can change the route faster.
+* When I change the order of my stops, I want the map and walking times to update, so I can compare route options.
+* When I reorder stops, I want the app to preserve the location details, so I can safely experiment with the route sequence.
+
+---
+
+## 4. Business/Product Requirements and User Stories
+
+| ID          | Requirement                                                                                                               | User Story                                                                                                                                            | Priority  | Notes                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
+| REQ-DND-001 | The app must allow users to reorder active route locations using drag-and-drop.                                           | As a user, I want to drag a stop to a new position in the route, so that I can quickly change the walking sequence without moving one step at a time. | Must Have | Use a sortable list pattern.                                      |
+| REQ-DND-002 | Each active route location must display a visible drag handle.                                                            | As a user, I want a clear place to grab the location card, so that I understand how to reorder stops.                                                 | Must Have | Use a visual grip icon such as `⋮⋮` or a drag handle icon.        |
+| REQ-DND-003 | Dropping a location in a new position must update only the active route order.                                            | As a user, I want reordering to change only the sequence of stops, so that my location details stay unchanged.                                        | Must Have | Update `activeLocationIds` only. Do not modify location objects.  |
+| REQ-DND-004 | After a drag-and-drop reorder, the app must recalculate the route, walking times, total walking time, and total distance. | As a user, I want the route to update after I reorder stops, so that I can compare the new route.                                                     | Must Have | Recalculate after drop, not continuously during drag.             |
+| REQ-DND-005 | Marker numbering on the map must update after the route order changes.                                                    | As a user, I want the map numbers to match the route list, so that I can understand the new route sequence.                                           | Must Have | Marker 1 should match the first active route location.            |
+| REQ-DND-006 | The app must provide visual feedback while a location card is being dragged.                                              | As a user, I want to see which item I am moving and where it will land, so that I can reorder confidently.                                            | Must Have | Include lifted card styling and a visible drop position.          |
+| REQ-DND-007 | The app must keep up/down reorder buttons as an accessibility fallback.                                                   | As a user, I want another way to reorder stops, so that I can still change the route if drag-and-drop is hard to use.                                 | Must Have | Keep existing move earlier / move later controls.                 |
+| REQ-DND-008 | Drag-and-drop must work on desktop and touch devices where practical.                                                     | As a mobile user, I want to drag stops on my phone, so that I can plan while I am out.                                                                | Must Have | Use a React drag-and-drop library with pointer and touch support. |
+
+### Priority Definitions
+
+| Priority   | Meaning                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| Must Have  | Required for this feature release. The feature is incomplete without this. |
+| Won’t Have | Explicitly excluded from this feature release.                             |
+
+---
+
+## 5. MVP Scope
+
+### Feature Summary
+
+This feature adds a faster route reordering interaction on top of the existing MVP. Users can drag active route location cards into a new order, and the app updates the route after the drop.
+
+### Must Have
+
+These items are required for this feature:
+
+* Drag-and-drop sorting for active route locations.
+* Visible drag handle on each active location card.
+* Reordering updates `activeLocationIds`.
+* Reordering does not change location name, address, coordinates, or saved details.
+* Route recalculation after drop.
+* Walking time recalculation after drop.
+* Total walking time recalculation after drop.
+* Total distance recalculation after drop.
+* Map marker number updates after drop.
+* Visual dragging state.
+* Visible drop target or insertion position.
+* Up/down buttons retained as fallback controls.
+* Desktop and mobile-friendly interaction.
+
+### Out of Scope
+
+Do not build these as part of this feature:
+
+* Editing location details.
+* Dragging locations on the map.
+* Dragging removed locations into the active route list.
+* Dragging active locations into the removed list.
+* Saving multiple route versions.
+* Automatic route optimization.
+* Collaborative route editing.
+* Advanced animation-heavy interactions.
+
+---
+
+## 6. User Flows
+
+### Flow 1: Drag a Location to a New Route Position
+
+1. User views the active route list.
+2. User sees numbered location cards with visible drag handles.
+3. User grabs the drag handle on a location card.
+4. App visually lifts or highlights the selected card.
+5. User drags the card to a new position in the active route list.
+6. App shows a clear drop position.
+7. User releases the card.
+8. App updates the active route order.
+9. App updates route numbering.
+10. App recalculates the walking route, walking times, total walking time, and total distance.
+11. App updates the map route and marker numbers.
+
+### Flow 2: Dragging Without Changing Position
+
+1. User grabs a location card.
+2. User drags the card but drops it back in the same position.
+3. App keeps the active route order unchanged.
+4. App does not unnecessarily recalculate route data.
+5. User remains on the active route list.
+
+### Flow 3: Reorder Using Fallback Buttons
+
+1. User views the active route list.
+2. User chooses “Move earlier” or “Move later” on a location card.
+3. App changes the route order by one position.
+4. App updates route numbering.
+5. App recalculates the route, walking times, total walking time, and total distance.
+6. App updates the map route and marker numbers.
+
+### Flow 4: Mobile Drag Reorder
+
+1. User opens the app on a phone-sized screen.
+2. User sees the active route list above the map.
+3. User long-presses or grabs the drag handle on a location card.
+4. User drags the card to a new position.
+5. User releases the card.
+6. App updates the route order and recalculates route details.
+7. User can still use fallback move buttons if dragging is difficult.
+
+---
+
+## 7. Data Model Impact
+
+### Data Storage Choice
+
+For this feature, continue to use:
+
+* [x] Local storage
+* [ ] Replit database
+* [ ] Supabase
+* [ ] Firebase
+* [ ] Postgres
+* [ ] Other: Not needed for this feature
+
+Recommended choice:
+Continue using local storage. This feature only changes the order of existing active locations, so it does not require a new database or backend.
+
+### Impacted Entity: RoutePlan
+
+Description:
+The route plan already stores the ordered list of active locations. Drag-and-drop reordering should update the order of this array.
+
+| Field               | Type     | Required? | Notes                                                                                             |
+| ------------------- | -------- | --------- | ------------------------------------------------------------------------------------------------- |
+| activeLocationIds   | string[] | Yes       | This is the source of truth for active route order. Drag-and-drop should reorder this array only. |
+| totalWalkingMinutes | number   | No        | Recalculated after route order changes.                                                           |
+| totalDistanceMeters | number   | No        | Recalculated after route order changes.                                                           |
+| updatedAt           | datetime | Yes       | Updated after successful reorder.                                                                 |
+
+### Impacted Entity: Location
+
+Description:
+Location objects should not be modified when users drag and drop route items.
+
+| Field     | Type   | Required? | Notes                                                                              |
+| --------- | ------ | --------- | ---------------------------------------------------------------------------------- |
+| id        | string | Yes       | Used to reorder `activeLocationIds`.                                               |
+| name      | string | Yes       | Must remain unchanged during reorder.                                              |
+| address   | string | Yes       | Must remain unchanged during reorder.                                              |
+| latitude  | number | No        | Must remain unchanged during reorder.                                              |
+| longitude | number | No        | Must remain unchanged during reorder.                                              |
+| status    | string | Yes       | Must remain unchanged unless the user explicitly removes or restores the location. |
+
+### Relationships
+
+| Entity    | Relationship        | Related Entity           |
+| --------- | ------------------- | ------------------------ |
+| RoutePlan | has ordered list of | Location                 |
+| RoutePlan | has many            | RouteLeg                 |
+| RouteLeg  | belongs to          | Location as fromLocation |
+| RouteLeg  | belongs to          | Location as toLocation   |
+
+### Validation Rules
+
+* Drag-and-drop reordering must only affect active locations.
+* Removed locations must not appear in the active sortable list.
+* A dropped item must result in a valid `activeLocationIds` array.
+* `activeLocationIds` must contain unique location IDs.
+* Reordering must not create duplicate location IDs.
+* Reordering must not delete location IDs.
+* Reordering must not modify the underlying location object.
+* If the item is dropped in the same position, no route recalculation is required.
+
+### Example Data Change
+
+Before drag:
+
+```json
+{
+  "activeLocationIds": ["loc-1", "loc-2", "loc-3", "loc-4"]
+}
+```
+
+User drags `loc-4` to the second position.
+
+After drag:
+
+```json
+{
+  "activeLocationIds": ["loc-1", "loc-4", "loc-2", "loc-3"]
+}
+```
+
+The `Location` objects remain unchanged.
+
+---
+
+## 8. Screens and UI Requirements
+
+### Screen: Active Route Order Panel
+
+Purpose:
+Let users quickly change the order in which active route locations are visited.
+
+Required elements:
+
+* Numbered active stop cards.
+* Visible drag handle on each active stop card.
+* Place name.
+* Address.
+* Walking time to next stop.
+* First stop label.
+* Last stop label.
+* Move earlier button.
+* Move later button.
+* Remove from route button.
+* Short helper text: “Drag stops to reorder the route. This changes route sequence only, not location details.”
+
+### Drag Handle
+
+Required behavior:
+
+* The drag handle should be visually distinct.
+* The drag handle should appear near the route number or left side of the location card.
+* The cursor should change to indicate dragging on desktop.
+* The drag handle should have an accessible label such as “Drag to reorder [location name].”
+
+Suggested visual:
+
+```txt
+[1] ⋮⋮ Blue Bottle Coffee
+    66 Mint St, San Francisco
+    🚶 24 min to next
+```
+
+### Dragging State
+
+Required behavior:
+
+* The dragged card should appear lifted or highlighted.
+* The original list should show where the item will be dropped.
+* Other cards should move or create space to indicate the new position.
+* The app should avoid recalculating route data until the card is dropped.
+
+### Drop Result
+
+Required behavior:
+
+* The new route order should appear immediately.
+* Number badges should update immediately.
+* Map marker numbers should update.
+* Route summary should show an “Updating route…” state if recalculation takes noticeable time.
+* The route line should update after recalculation.
+
+---
+
+## 9. Functional Requirements
+
+### Drag-and-Drop Reordering
+
+* User can drag active location cards to a new position.
+* User can move a location multiple positions in one action.
+* User can drop a location at the beginning, middle, or end of the active route list.
+* App updates `activeLocationIds` after the drop.
+* App does not modify the underlying location object.
+* App recalculates route data after a successful drop.
+* App does not recalculate route data continuously while dragging.
+* App does not recalculate if the item is dropped in the same position.
+
+### Fallback Reordering
+
+* App keeps “Move earlier” and “Move later” buttons.
+* Buttons remain functional even if drag-and-drop fails.
+* Buttons update the same `activeLocationIds` source of truth.
+* Buttons trigger the same route recalculation behavior as drag-and-drop.
+
+### Map and Route Updates
+
+* Map marker numbering updates after reorder.
+* Walking route updates after reorder.
+* Walking time between stops updates after reorder.
+* Total walking time updates after reorder.
+* Total distance updates after reorder.
+
+---
+
+## 10. Non-Functional Requirements
+
+### Usability
+
+* The drag handle should be easy to discover.
+* The user should understand that dragging changes route order only.
+* The UI should provide clear visual feedback while dragging.
+* The route should update only after the user drops the item.
+* The interaction should feel fast and stable.
+
+### Performance
+
+* Do not call routing APIs continuously during drag.
+* Recalculate route data only after a successful drop.
+* Debounce or guard route recalculation if needed.
+* The feature should work smoothly for up to 20 active locations.
+
+### Reliability
+
+* If drag-and-drop fails, fallback move buttons should still work.
+* If route recalculation fails after a reorder, preserve the new order and show a route error message.
+* If the app is refreshed after reorder, the new order should persist from local storage.
+
+### Accessibility
+
+* Keep keyboard-accessible fallback controls.
+* Drag handles should have accessible labels.
+* Move earlier and move later buttons should have clear accessible labels.
+* Color should not be the only indicator of dragging or drop position.
+
+---
+
+## 11. Technical Approach
+
+### Recommended Library
+
+Use `dnd-kit` for drag-and-drop sorting.
+
+Recommended packages:
+
+```txt
+@dnd-kit/core
+@dnd-kit/sortable
+@dnd-kit/utilities
+```
+
+### Why `dnd-kit`
+
+* Good fit for React.
+* Supports sortable lists.
+* Works with pointer and touch interactions.
+* Flexible enough for a custom card-based UI.
+* Better suited for new projects than older drag-and-drop libraries.
+
+### Implementation Notes
+
+* Treat `activeLocationIds` as the source of truth for route order.
+* Render active route cards from `activeLocationIds`.
+* Wrap the active route list in a sortable context.
+* Give each location card a stable `id`.
+* On drag end:
+
+  * Identify the old index and new index.
+  * Reorder `activeLocationIds`.
+  * Save updated route plan to local storage.
+  * Recalculate route legs.
+  * Recalculate walking times.
+  * Recalculate total walking time.
+  * Recalculate total distance.
+  * Update marker numbering.
+* Do not mutate the `locations` array or individual location objects.
+* Do not call the routing API during drag movement.
+* Keep up/down controls as fallback actions using the same reorder function.
+
+### Suggested Component Updates
+
+```txt
+src/
+├── components/
+│   ├── RouteList.jsx
+│   ├── SortableRouteItem.jsx
+│   └── RouteSummary.jsx
+├── utils/
+│   └── reorderLocations.js
+```
+
+### Suggested Helper Function
+
+```js
+function reorderArray(items, oldIndex, newIndex) {
+  const result = [...items];
+  const [removed] = result.splice(oldIndex, 1);
+  result.splice(newIndex, 0, removed);
+  return result;
+}
+```
+
+---
+
+## 12. Assumptions
+
+* Assumption: Drag-and-drop reordering applies only to active route locations.
+* Assumption: Removed locations remain in a separate section and are not draggable in this feature.
+* Assumption: Route recalculation happens after drop, not during drag.
+* Assumption: Up/down buttons remain available as fallback controls.
+* Assumption: The app continues to use local storage.
+* Assumption: The app uses React and Tailwind CSS.
+* Assumption: `dnd-kit` is acceptable as a dependency.
+* Assumption: Mobile drag-and-drop should be supported where practical, but fallback buttons are sufficient if touch dragging is imperfect.
+
+---
+
+## 13. Acceptance Criteria
+
+### Drag-and-Drop Behavior
+
+* Given there are at least 2 active locations, when the user drags a location card to a new position, then the card appears in the new position after drop.
+* Given the user drags a location from the bottom of the list to the top, when they drop it, then the location becomes the first stop.
+* Given the user drags a location from the top of the list to the bottom, when they drop it, then the location becomes the last stop.
+* Given the user drops a location in the same position, then the route order remains unchanged.
+
+### Data Integrity
+
+* Given a user reorders locations, then only `activeLocationIds` changes.
+* Given a user reorders locations, then the location name remains unchanged.
+* Given a user reorders locations, then the location address remains unchanged.
+* Given a user reorders locations, then the location coordinates remain unchanged.
+* Given a user reorders locations, then no active location IDs are duplicated or deleted.
+
+### Route Recalculation
+
+* Given the active route order changes after drop, then the walking route recalculates.
+* Given the active route order changes after drop, then walking times between stops recalculate.
+* Given the active route order changes after drop, then total walking time recalculates.
+* Given the active route order changes after drop, then total distance recalculates.
+* Given the active route order changes after drop, then map marker numbers update.
+
+### Visual Feedback
+
+* Given the user starts dragging a stop, then the dragged card shows a visual dragging state.
+* Given the user drags a card between two stops, then the UI shows where the card will be dropped.
+* Given the route is recalculating after drop, then the app shows an updating state if recalculation takes noticeable time.
+
+### Fallback Controls
+
+* Given drag-and-drop is available, then “Move earlier” and “Move later” buttons are still visible or accessible.
+* Given the user clicks “Move earlier,” then the stop moves one position earlier.
+* Given the user clicks “Move later,” then the stop moves one position later.
+* Given the fallback buttons reorder the route, then route recalculation behaves the same as drag-and-drop.
+
+### Persistence
+
+* Given the user reorders the route, when they refresh the page, then the new route order is restored from local storage.
+
+---
+
+## 14. Error and Empty States
+
+### Empty State: Fewer Than Two Active Locations
+
+Message:
+“Add at least two locations to reorder and generate a walking route.”
+
+### Error: Drag-and-Drop Failed
+
+Message:
+“We could not reorder this stop using drag-and-drop. Try the move buttons instead.”
+
+### Error: Route Recalculation Failed After Reorder
+
+Message:
+“Your new stop order was saved, but we could not recalculate the walking route. Try a different order or check the locations.”
+
+### Loading State: Route Updating
+
+Message:
+“Updating route…”
+
+---
+
+## 15. Future Enhancements
+
+* Drag removed locations back into the active route.
+* Drag active locations into the removed locations section.
+* Drag stops directly on a route timeline.
+* Save multiple route order versions.
+* Compare two route orders side by side.
+* Add automatic route optimization.
+* Add undo after reorder.
+* Add keyboard-native drag-and-drop support.
+* Add smoother route transition animations on the map.
+
+---
+
+## 16. Replit-Specific AI Coding Instructions
+
+When implementing this feature in Replit:
+
+1. Install and use `dnd-kit`:
+
+   * `@dnd-kit/core`
+   * `@dnd-kit/sortable`
+   * `@dnd-kit/utilities`
+2. Implement drag-and-drop only for the active route list.
+3. Create a reusable `SortableRouteItem` component.
+4. Add a visible drag handle to each active location card.
+5. Keep existing “Move earlier” and “Move later” buttons as fallback controls.
+6. Use `activeLocationIds` as the only source of truth for route order.
+7. On drag end, update `activeLocationIds` only.
+8. Do not modify the location object when reordering.
+9. Do not edit location name, address, coordinates, status, or place ID during drag-and-drop.
+10. Recalculate route legs only after the drag is completed.
+11. Recalculate walking times, total walking time, and total distance after a successful drop.
+12. Update map marker numbering after the route order changes.
+13. Save the new route order to local storage.
+14. Add clear visual feedback for dragging and drop position.
+15. Ensure the UI works on desktop and remains usable on mobile.
+16. Preserve fallback buttons for accessibility and reliability.
+17. Show a friendly error if drag-and-drop fails.
+18. Do not build automatic optimization, map-based dragging, route versioning, or cross-list dragging as part of this feature.
+
+---
+
+## 17. Replit Build Prompt
+
+Add a new drag-and-drop route reordering feature to the existing WalkList Planner React app.
+
+The app already has an active route list, map markers, walking route, walking times, total walking time, total distance, local storage persistence, and move earlier / move later controls. This feature should let users drag active location cards to any new position in the route list, allowing them to skip multiple positions at once instead of clicking move buttons repeatedly.
+
+Use `dnd-kit` for the drag-and-drop sortable list implementation. Install and use:
+
+```txt
+@dnd-kit/core
+@dnd-kit/sortable
+@dnd-kit/utilities
+```
+
+Core requirements:
+
+* Add drag-and-drop sorting to the active route list.
+* Each active location card should have a visible drag handle.
+* Users should be able to move a location to the beginning, middle, or end of the route list.
+* Dragging should change only the route sequence.
+* Reordering must update `activeLocationIds` only.
+* Reordering must not edit the location’s name, address, coordinates, status, place ID, or other saved details.
+* After a successful drop, recalculate the walking route, walking times between stops, total walking time, total distance, and map marker numbering.
+* Do not call the routing API continuously while dragging.
+* Recalculate only after the card is dropped.
+* Keep the existing move earlier and move later buttons as accessibility fallback controls.
+* Save the new route order to local storage.
+* Add visual feedback while dragging, including a lifted card state and a clear drop position.
+* If the item is dropped in the same position, do not recalculate the route unnecessarily.
+* If route recalculation fails after reorder, preserve the new order and show a friendly error message.
+
+Keep this feature focused. Do not add automatic route optimization, editing location details, dragging locations on the map, dragging removed locations into the active list, dragging active locations into the removed list, route versioning, collaboration, or advanced animations.
