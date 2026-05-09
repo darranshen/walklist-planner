@@ -26,6 +26,7 @@ function WalkListApp() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!state) {
@@ -155,6 +156,8 @@ function WalkListApp() {
               onReorder={actions.reorderLocations}
               onToggleLock={actions.toggleLockLocation}
               onAddClick={() => setIsAddModalOpen(true)}
+              selectedLocationId={selectedLocationId}
+              onSelectLocation={setSelectedLocationId}
             />
             <RemovedLocations
               locations={removedLocations}
@@ -177,6 +180,8 @@ function WalkListApp() {
             legs={state.legs}
             isMockMode={state.isMockMode}
             onApiFailure={() => actions.setMockMode(true)}
+            selectedLocationId={selectedLocationId}
+            onSelectLocation={setSelectedLocationId}
           />
         </div>
       </div>

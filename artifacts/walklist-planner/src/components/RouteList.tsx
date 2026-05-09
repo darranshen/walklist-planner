@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -39,6 +39,8 @@ interface RouteListProps {
   onReorder: (newIds: string[]) => void;
   onToggleLock: (id: string) => void;
   onAddClick: () => void;
+  selectedLocationId?: string | null;
+  onSelectLocation?: (id: string | null) => void;
 }
 
 function transitIcon(mode: TransitMode) {
@@ -162,6 +164,8 @@ interface LocationCardProps {
   onToggleLock: (id: string) => void;
   isDragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
+  isSelected?: boolean;
+  onSelect?: (id: string | null) => void;
 }
 
 function LocationCardInner({
@@ -174,19 +178,26 @@ function LocationCardInner({
   onToggleLock,
   isDragging = false,
   dragHandleProps = {},
+  isSelected = false,
+  onSelect,
 }: LocationCardProps) {
   const isFirst = index === 0;
   const isLast = index === total - 1;
   const isLocked = !!loc.locked;
 
   return (
-    <Card className={`relative p-4 pr-[60px] transition-all ${
-      isDragging
-        ? 'shadow-lg border-primary/50 bg-primary/5'
-        : isLocked
-          ? 'border-green-300 bg-green-50/40 dark:border-green-700 dark:bg-green-950/20'
-          : 'hover:border-primary/30'
-    }`}>
+    <Card
+      className={`relative p-4 pr-[60px] transition-all cursor-pointer ${
+        isDragging
+          ? 'shadow-lg border-primary/50 bg-primary/5'
+          : isSelected
+            ? 'border-blue-300 bg-blue-50/70 dark:border-blue-600 dark:bg-blue-950/40'
+            : isLocked
+              ? 'border-green-300 bg-green-50/40 dark:border-green-700 dark:bg-green-950/20'
+              : 'hover:border-primary/30'
+      }`}
+      onClick={() => onSelect?.(isSelected ? null : loc.id)}
+    >
       <div className="flex items-start gap-3">
         <button
           className={`flex-shrink-0 mt-1 transition-colors touch-none ${
@@ -223,7 +234,7 @@ function LocationCardInner({
         </div>
       </div>
 
-      <div className="absolute right-2 top-2 flex flex-col gap-1">
+      <div className="absolute right-2 top-2 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
         <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
           <button
             onClick={() => onMoveUp(index)}
@@ -291,7 +302,7 @@ function SortableLocationCard(props: LocationCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} data-loc-id={props.loc.id}>
       <LocationCardInner
         {...props}
         isDragging={isDragging}
@@ -313,8 +324,18 @@ export function RouteList({
   onReorder,
   onToggleLock,
   onAddClick,
+  selectedLocationId,
+  onSelectLocation,
 }: RouteListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the highlighted card into view when selection changes from outside (map click)
+  useEffect(() => {
+    if (!selectedLocationId || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-loc-id="${selectedLocationId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedLocationId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -408,7 +429,7 @@ export function RouteList({
           items={activeLocations.map(l => l.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-3">
+          <div className="space-y-3" ref={listRef}>
             {activeLocations.map((loc, index) => {
               const isLast = index === activeLocations.length - 1;
               return (
@@ -421,6 +442,8 @@ export function RouteList({
                     onMoveDown={onMoveDown}
                     onRemove={onRemove}
                     onToggleLock={onToggleLock}
+                    isSelected={selectedLocationId === loc.id}
+                    onSelect={onSelectLocation}
                   />
                   {activeLocations.length > 1 && (
                     <LegConnector leg={legs[index]} isMockMode={isMockMode} isLast={isLast} />

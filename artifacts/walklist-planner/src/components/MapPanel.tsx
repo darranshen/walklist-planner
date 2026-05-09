@@ -9,6 +9,8 @@ interface MapPanelProps {
   legs: RouteLeg[];
   isMockMode: boolean;
   onApiFailure: () => void;
+  selectedLocationId?: string | null;
+  onSelectLocation?: (id: string | null) => void;
 }
 
 // ─── Place preview helpers ───────────────────────────────────────────────────
@@ -147,7 +149,7 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: MapPanelProps) {
+export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure, selectedLocationId, onSelectLocation }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -166,6 +168,11 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const placesCacheRef = useRef<Map<string, google.maps.places.PlaceResult>>(new Map());
   const pinnedMarkerRef = useRef<string | null>(null);
+  const markerMapRef = useRef<Map<string, { loc: Location; marker: google.maps.Marker }>>(new Map());
+  const showPreviewFnRef = useRef<((loc: Location, marker: google.maps.Marker) => void) | null>(null);
+  const onSelectLocationRef = useRef(onSelectLocation);
+  // Keep the ref current on every render so event listeners never go stale
+  onSelectLocationRef.current = onSelectLocation;
 
   useEffect(() => {
     if (!isMockMode) {
@@ -277,6 +284,7 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
     (window as any).__gmCloseIW = () => {
       infoWindow.close();
       pinnedMarkerRef.current = null;
+      onSelectLocationRef.current?.(null);
     };
 
     if (!placesServiceRef.current) {
@@ -284,6 +292,9 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
     }
     const placesService = placesServiceRef.current;
     const cache = placesCacheRef.current;
+
+    // Reset marker map for this render cycle
+    markerMapRef.current = new Map();
 
     // Shared helper: fetch & display the rich preview for a location
     function showPreview(loc: typeof activeLocations[number], marker: google.maps.Marker) {
@@ -328,6 +339,8 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
         }
       );
     }
+    // Store reference so the selection effect can invoke it
+    showPreviewFnRef.current = showPreview;
 
     activeLocations.forEach((loc, i) => {
       if (loc.latitude != null && loc.longitude != null) {
@@ -361,19 +374,20 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
           infoWindow.close();
         });
 
-        // Click: toggle pin on this marker
+        // Click: toggle pin on this marker and notify parent for list highlighting
         marker.addListener("click", () => {
           if (pinnedMarkerRef.current === loc.id) {
-            // Already pinned here — unpin and close
             pinnedMarkerRef.current = null;
             infoWindow.close();
+            onSelectLocationRef.current?.(null);
           } else {
-            // Pin this marker
             pinnedMarkerRef.current = loc.id;
             showPreview(loc, marker);
+            onSelectLocationRef.current?.(loc.id);
           }
         });
 
+        markerMapRef.current.set(loc.id, { loc, marker });
         googleMarkersRef.current.push(marker);
         bounds.extend({ lat: loc.latitude, lng: loc.longitude });
       }
@@ -443,6 +457,31 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
       map.setZoom(15);
     }
   }, [isMockMode, googleMapsLoaded, activeLocations, legs]);
+
+  // When the list selects a location, open its InfoWindow on the map
+  useEffect(() => {
+    if (!googleMapsLoaded) return;
+    const infoWindow = infoWindowRef.current;
+    const map = googleMapRef.current;
+    if (!infoWindow || !map) return;
+
+    if (!selectedLocationId) {
+      if (pinnedMarkerRef.current) {
+        infoWindow.close();
+        pinnedMarkerRef.current = null;
+      }
+      return;
+    }
+
+    // Already pinned here — no need to re-open
+    if (pinnedMarkerRef.current === selectedLocationId) return;
+
+    const entry = markerMapRef.current.get(selectedLocationId);
+    if (!entry) return;
+
+    pinnedMarkerRef.current = selectedLocationId;
+    showPreviewFnRef.current?.(entry.loc, entry.marker);
+  }, [selectedLocationId, googleMapsLoaded]);
 
   if (mapError && !isMockMode) {
     return (
