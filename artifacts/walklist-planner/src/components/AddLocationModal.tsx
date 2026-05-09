@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { X, MapPin } from "lucide-react";
+import { X, MapPin, Loader2 } from "lucide-react";
 import { Location } from "../types/route";
 
 type PendingLocation = Omit<Location, "id" | "status" | "createdAt" | "updatedAt">;
+
+interface Suggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+}
 
 interface AddLocationModalProps {
   open: boolean;
@@ -29,59 +35,109 @@ export function AddLocationModal({
   isMockMode,
 }: AddLocationModalProps) {
   const [pending, setPending] = useState<PendingLocation[]>([]);
+
+  // Live mode state
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const [isResolvingPlace, setIsResolvingPlace] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Mock mode state
   const [mockName, setMockName] = useState("");
   const [mockAddress, setMockAddress] = useState("");
-  const [placesReady, setPlacesReady] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const acServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const usePlaces = !isMockMode && placesReady;
+  const usePlaces = !isMockMode && !!(window.google?.maps?.places?.AutocompleteService);
 
-  // Detect Places availability
+  // Init services when modal opens
   useEffect(() => {
-    setPlacesReady(!!(window.google?.maps?.places));
-  }, [open]);
-
-  // Attach Places Autocomplete to the input
-  useEffect(() => {
-    if (!open || !usePlaces || !inputRef.current) return;
-
-    const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
-      fields: ["name", "formatted_address", "geometry", "place_id"],
-    });
-
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      if (!place.geometry?.location) return;
-
-      setPending((prev) => [
-        ...prev,
-        {
-          name: place.name || inputRef.current?.value || "",
-          address: place.formatted_address || "",
-          latitude: place.geometry!.location!.lat(),
-          longitude: place.geometry!.location!.lng(),
-          placeId: place.place_id,
-          source: "manual" as const,
-        },
-      ]);
-
-      if (inputRef.current) {
-        inputRef.current.value = "";
-        inputRef.current.focus();
-      }
-    });
-
-    autocompleteRef.current = ac;
-
-    return () => {
-      if (autocompleteRef.current) {
-        window.google?.maps?.event?.clearInstanceListeners(autocompleteRef.current);
-        autocompleteRef.current = null;
-      }
-    };
+    if (!open || !usePlaces) return;
+    if (!acServiceRef.current) {
+      acServiceRef.current = new window.google.maps.places.AutocompleteService();
+    }
+    if (!placesServiceRef.current) {
+      const div = document.createElement("div");
+      placesServiceRef.current = new window.google.maps.places.PlacesService(div);
+    }
   }, [open, usePlaces]);
+
+  const fetchSuggestions = useCallback((value: string) => {
+    if (!value.trim() || !acServiceRef.current) {
+      setSuggestions([]);
+      setIsFetchingSuggestions(false);
+      return;
+    }
+    setIsFetchingSuggestions(true);
+    acServiceRef.current.getPlacePredictions(
+      { input: value },
+      (predictions, status) => {
+        setIsFetchingSuggestions(false);
+        if (
+          status === window.google.maps.places.PlacesServiceStatus.OK &&
+          predictions
+        ) {
+          setSuggestions(
+            predictions.map((p) => ({
+              placeId: p.place_id,
+              mainText: p.structured_formatting.main_text,
+              secondaryText: p.structured_formatting.secondary_text ?? "",
+            }))
+          );
+        } else {
+          setSuggestions([]);
+        }
+      }
+    );
+  }, []);
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setShowSuggestions(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => fetchSuggestions(value), 250);
+  }
+
+  function handleSelectSuggestion(suggestion: Suggestion) {
+    if (!placesServiceRef.current) return;
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setQuery("");
+    setIsResolvingPlace(true);
+
+    placesServiceRef.current.getDetails(
+      {
+        placeId: suggestion.placeId,
+        fields: ["name", "formatted_address", "geometry", "place_id"],
+      },
+      (place, status) => {
+        setIsResolvingPlace(false);
+        if (
+          status !== window.google.maps.places.PlacesServiceStatus.OK ||
+          !place
+        )
+          return;
+        setPending((prev) => [
+          ...prev,
+          {
+            name: place.name || suggestion.mainText,
+            address: place.formatted_address || suggestion.secondaryText,
+            latitude: place.geometry?.location?.lat() ?? null,
+            longitude: place.geometry?.location?.lng() ?? null,
+            placeId: place.place_id,
+            source: "manual" as const,
+          },
+        ]);
+      }
+    );
+  }
 
   function addMockLocation() {
     if (!mockName.trim() || !mockAddress.trim()) return;
@@ -111,6 +167,9 @@ export function AddLocationModal({
 
   function handleClose() {
     setPending([]);
+    setQuery("");
+    setSuggestions([]);
+    setShowSuggestions(false);
     setMockName("");
     setMockAddress("");
     onOpenChange(false);
@@ -131,13 +190,41 @@ export function AddLocationModal({
           {usePlaces ? (
             <div className="grid gap-1.5">
               <Label htmlFor="loc-search">Search for a place</Label>
-              <Input
-                ref={inputRef}
-                id="loc-search"
-                placeholder="e.g. Blue Bottle Coffee, San Francisco"
-                autoComplete="off"
-                data-testid="input-loc-search"
-              />
+              <div className="relative">
+                <div className="relative">
+                  <Input
+                    id="loc-search"
+                    value={query}
+                    onChange={(e) => handleQueryChange(e.target.value)}
+                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    placeholder="e.g. Blue Bottle Coffee, San Francisco"
+                    autoComplete="off"
+                    data-testid="input-loc-search"
+                    className={isResolvingPlace ? "pr-8" : ""}
+                  />
+                  {(isFetchingSuggestions || isResolvingPlace) && (
+                    <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-background border border-border rounded-md shadow-lg overflow-hidden max-h-52 overflow-y-auto">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.placeId}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectSuggestion(s);
+                        }}
+                        className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border last:border-b-0"
+                      >
+                        <p className="text-sm font-medium leading-snug">{s.mainText}</p>
+                        <p className="text-xs text-muted-foreground leading-snug">{s.secondaryText}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Select from the dropdown to add to the queue below.
               </p>
@@ -216,9 +303,7 @@ export function AddLocationModal({
             disabled={pending.length === 0}
             data-testid="button-save-location"
           >
-            {pending.length > 0
-              ? `Add ${pending.length} to Route`
-              : "Add to Route"}
+            {pending.length > 0 ? `Add ${pending.length} to Route` : "Add to Route"}
           </Button>
         </DialogFooter>
       </DialogContent>
