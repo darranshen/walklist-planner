@@ -30,23 +30,40 @@ function buildStars(rating: number): string {
   const half = rating - full >= 0.5 ? 1 : 0;
   const empty = 5 - full - half;
   const star = `<span style="color:#fbbc04;">★</span>`;
-  const halfStar = `<span style="color:#fbbc04;opacity:0.5;">★</span>`;
-  const emptyStar = `<span style="color:#ccc;">★</span>`;
+  const halfStar = `<span style="color:#fbbc04;opacity:0.55;">★</span>`;
+  const emptyStar = `<span style="color:#d1d5db;">★</span>`;
   return star.repeat(full) + halfStar.repeat(half) + emptyStar.repeat(empty);
+}
+
+function formatHoursStatus(hours: google.maps.places.OpeningHours): string {
+  const isOpen = hours.isOpen();
+  const jsDay = new Date().getDay();
+  const idx = jsDay === 0 ? 6 : jsDay - 1; // Mon=0 … Sun=6
+  const todayText = hours.weekday_text?.[idx] ?? "";
+  // Strip the day name prefix ("Monday: 9:00 AM – 10:00 PM" → "9:00 AM – 10:00 PM")
+  const timeRange = todayText.replace(/^[^:]+:\s*/, "");
+
+  const statusColor = isOpen ? "#16a34a" : "#dc2626";
+  const statusLabel = isOpen ? "Open now" : "Closed";
+
+  return `<div style="display:flex;align-items:baseline;gap:4px;margin-top:2px;">
+    <span style="font-size:12px;font-weight:600;color:${statusColor};">${statusLabel}</span>
+    ${timeRange ? `<span style="font-size:12px;color:#64748b;">· ${timeRange}</span>` : ""}
+  </div>`;
 }
 
 function buildLoadingContent(name: string): string {
   return `
-    <div style="width:240px;padding:2px;font-family:Arial,sans-serif;">
-      <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1a1a1a;">${name}</p>
-      <p style="margin:0;font-size:11px;color:#999;">Loading preview…</p>
+    <div style="width:260px;padding:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0f172a;">${name}</p>
+      <p style="margin:0;font-size:12px;color:#94a3b8;">Loading preview…</p>
     </div>`;
 }
 
 function buildNameOnlyContent(name: string): string {
   return `
-    <div style="width:200px;padding:2px;font-family:Arial,sans-serif;">
-      <p style="margin:0;font-size:14px;font-weight:700;color:#1a1a1a;">${name}</p>
+    <div style="width:220px;padding:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      <p style="margin:0;font-size:14px;font-weight:700;color:#0f172a;">${name}</p>
     </div>`;
 }
 
@@ -56,31 +73,56 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
   const reviews = place.user_ratings_total;
   const price = place.price_level != null ? "$".repeat(place.price_level) : "";
   const type = formatType(place.types ?? []);
-  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 280, maxHeight: 150 });
+  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 292, maxHeight: 150 });
+  const address = place.formatted_address ?? place.vicinity ?? "";
+  const summary = (place as any).editorial_summary?.overview ?? "";
+  const hours = place.opening_hours;
+
+  const photo = photoUrl
+    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 0 -16px;height:148px;object-fit:cover;border-radius:2px 2px 0 0;" />`
+    : "";
 
   const ratingLine = rating != null
-    ? `<p style="margin:0 0 2px;font-size:12px;line-height:1.4;">
-         ${buildStars(rating)}
-         <span style="color:#333;font-weight:600;margin-left:2px;">${rating.toFixed(1)}</span>
-         ${reviews != null ? `<span style="color:#777;"> (${reviews.toLocaleString()})</span>` : ""}
-         ${price ? `<span style="color:#777;"> · ${price}</span>` : ""}
+    ? `<p style="margin:0 0 2px;font-size:12px;line-height:1.5;">
+        ${buildStars(rating)}
+        <span style="color:#1e293b;font-weight:600;margin-left:3px;">${rating.toFixed(1)}</span>
+        ${reviews != null ? `<span style="color:#64748b;"> (${reviews.toLocaleString()})</span>` : ""}
+        ${price ? `<span style="color:#64748b;"> · ${price}</span>` : ""}
        </p>`
     : "";
 
   const typeLine = type
-    ? `<p style="margin:0;font-size:12px;color:#777;">${type}</p>`
+    ? `<p style="margin:0 0 8px;font-size:12px;color:#64748b;">${type}</p>`
+    : `<div style="margin-bottom:8px;"></div>`;
+
+  const divider = `<hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0 8px;">`;
+
+  const summaryBlock = summary
+    ? `<p style="margin:0 0 8px;font-size:12px;color:#475569;line-height:1.5;font-style:italic;">${summary}</p>`
     : "";
 
-  const photo = photoUrl
-    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 10px -16px;height:140px;object-fit:cover;" />`
+  const addressBlock = address
+    ? `<p style="margin:0 0 4px;font-size:12px;color:#475569;line-height:1.4;">
+        <span style="color:#94a3b8;margin-right:4px;">&#9679;</span>${address}
+       </p>`
     : "";
+
+  const hoursBlock = hours ? formatHoursStatus(hours) : "";
+
+  const hasExtra = summaryBlock || addressBlock || hoursBlock;
 
   return `
-    <div style="width:248px;font-family:Arial,sans-serif;">
+    <div style="width:260px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:-12px -16px -8px;">
       ${photo}
-      <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a1a1a;line-height:1.3;">${name}</p>
-      ${ratingLine}
-      ${typeLine}
+      <div style="padding:10px 14px 6px;">
+        <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3;">${name}</p>
+        ${ratingLine}
+        ${typeLine}
+        ${hasExtra ? divider : ""}
+        ${summaryBlock}
+        ${addressBlock}
+        ${hoursBlock}
+      </div>
     </div>`;
 }
 
@@ -250,19 +292,41 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
           infoWindow.setContent(buildLoadingContent(loc.name));
           infoWindow.open(map, marker);
 
+          // Step 1: textSearch to find the place and get a valid place_id
           placesService.textSearch(
             {
               query: loc.name,
               location: { lat: loc.latitude!, lng: loc.longitude! },
               radius: 300,
             },
-            (results, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]) {
-                cache.set(cacheKey, results[0]);
-                infoWindow.setContent(buildRichContent(results[0]));
-              } else {
+            (results, textStatus) => {
+              const placeId = results?.[0]?.place_id;
+              if (textStatus !== google.maps.places.PlacesServiceStatus.OK || !placeId) {
                 infoWindow.setContent(buildNameOnlyContent(loc.name));
+                return;
               }
+
+              // Step 2: getDetails for rich fields not returned by textSearch
+              placesService.getDetails(
+                {
+                  placeId,
+                  fields: [
+                    "name", "rating", "user_ratings_total", "photos",
+                    "types", "price_level", "formatted_address",
+                    "editorial_summary", "opening_hours",
+                  ],
+                },
+                (place, detailStatus) => {
+                  if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place) {
+                    cache.set(cacheKey, place);
+                    infoWindow.setContent(buildRichContent(place));
+                  } else {
+                    // Fall back to whatever textSearch returned
+                    cache.set(cacheKey, results![0]);
+                    infoWindow.setContent(buildRichContent(results![0]));
+                  }
+                }
+              );
             }
           );
         });
