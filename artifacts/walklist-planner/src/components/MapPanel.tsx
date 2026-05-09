@@ -73,17 +73,17 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
   const reviews = place.user_ratings_total;
   const price = place.price_level != null ? "$".repeat(place.price_level) : "";
   const type = formatType(place.types ?? []);
-  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 292, maxHeight: 150 });
+  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 292, maxHeight: 120 });
   const address = place.formatted_address ?? place.vicinity ?? "";
   const summary = (place as any).editorial_summary?.overview ?? "";
   const hours = place.opening_hours;
 
   const photo = photoUrl
-    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 0 -16px;height:148px;object-fit:cover;border-radius:2px 2px 0 0;" />`
+    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 0 -16px;height:120px;object-fit:cover;border-radius:2px 2px 0 0;" />`
     : "";
 
   const ratingLine = rating != null
-    ? `<p style="margin:0 0 2px;font-size:12px;line-height:1.5;">
+    ? `<p style="margin:0 0 1px;font-size:12px;line-height:1.4;">
         ${buildStars(rating)}
         <span style="color:#1e293b;font-weight:600;margin-left:3px;">${rating.toFixed(1)}</span>
         ${reviews != null ? `<span style="color:#64748b;"> (${reviews.toLocaleString()})</span>` : ""}
@@ -92,19 +92,17 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
     : "";
 
   const typeLine = type
-    ? `<p style="margin:0 0 8px;font-size:12px;color:#64748b;">${type}</p>`
-    : `<div style="margin-bottom:8px;"></div>`;
+    ? `<p style="margin:0 0 6px;font-size:12px;color:#64748b;">${type}</p>`
+    : `<div style="margin-bottom:6px;"></div>`;
 
-  const divider = `<hr style="border:none;border-top:1px solid #e2e8f0;margin:8px 0 8px;">`;
+  const divider = `<hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;">`;
 
   const summaryBlock = summary
-    ? `<p style="margin:0 0 8px;font-size:12px;color:#475569;line-height:1.5;font-style:italic;">${summary}</p>`
+    ? `<p style="margin:0 0 5px;font-size:11.5px;color:#475569;line-height:1.45;font-style:italic;">${summary}</p>`
     : "";
 
   const addressBlock = address
-    ? `<p style="margin:0 0 4px;font-size:12px;color:#475569;line-height:1.4;">
-        <span style="color:#94a3b8;margin-right:4px;">&#9679;</span>${address}
-       </p>`
+    ? `<p style="margin:0 0 3px;font-size:11.5px;color:#475569;line-height:1.4;">${address}</p>`
     : "";
 
   const hoursBlock = hours ? formatHoursStatus(hours) : "";
@@ -112,10 +110,10 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
   const hasExtra = summaryBlock || addressBlock || hoursBlock;
 
   return `
-    <div style="width:260px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:-12px -16px -8px;">
+    <div style="width:260px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:-12px -16px -10px;">
       ${photo}
-      <div style="padding:10px 14px 6px;">
-        <p style="margin:0 0 3px;font-size:15px;font-weight:700;color:#0f172a;line-height:1.3;">${name}</p>
+      <div style="padding:8px 13px 4px;">
+        <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#0f172a;line-height:1.3;">${name}</p>
         ${ratingLine}
         ${typeLine}
         ${hasExtra ? divider : ""}
@@ -146,6 +144,7 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const placesCacheRef = useRef<Map<string, google.maps.places.PlaceResult>>(new Map());
+  const pinnedMarkerRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isMockMode) {
@@ -249,15 +248,64 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
     const bounds = new google.maps.LatLngBounds();
 
     if (!infoWindowRef.current) {
-      infoWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });
+      infoWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true, maxWidth: 292 });
     }
     const infoWindow = infoWindowRef.current;
+
+    // Clear pin state when the X button is clicked
+    infoWindow.addListener("closeclick", () => {
+      pinnedMarkerRef.current = null;
+    });
 
     if (!placesServiceRef.current) {
       placesServiceRef.current = new google.maps.places.PlacesService(map);
     }
     const placesService = placesServiceRef.current;
     const cache = placesCacheRef.current;
+
+    // Shared helper: fetch & display the rich preview for a location
+    function showPreview(loc: typeof activeLocations[number], marker: google.maps.Marker) {
+      const cacheKey = loc.id;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        infoWindow.setContent(buildRichContent(cached));
+        infoWindow.open(map, marker);
+        return;
+      }
+
+      infoWindow.setContent(buildLoadingContent(loc.name));
+      infoWindow.open(map, marker);
+
+      placesService.textSearch(
+        { query: loc.name, location: { lat: loc.latitude!, lng: loc.longitude! }, radius: 300 },
+        (results, textStatus) => {
+          const placeId = results?.[0]?.place_id;
+          if (textStatus !== google.maps.places.PlacesServiceStatus.OK || !placeId) {
+            infoWindow.setContent(buildNameOnlyContent(loc.name));
+            return;
+          }
+          placesService.getDetails(
+            {
+              placeId,
+              fields: [
+                "name", "rating", "user_ratings_total", "photos",
+                "types", "price_level", "formatted_address",
+                "editorial_summary", "opening_hours",
+              ],
+            },
+            (place, detailStatus) => {
+              if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place) {
+                cache.set(cacheKey, place);
+                infoWindow.setContent(buildRichContent(place));
+              } else {
+                cache.set(cacheKey, results![0]);
+                infoWindow.setContent(buildRichContent(results![0]));
+              }
+            }
+          );
+        }
+      );
+    }
 
     activeLocations.forEach((loc, i) => {
       if (loc.latitude != null && loc.longitude != null) {
@@ -280,59 +328,28 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
           },
         });
 
+        // Hover: only show when nothing is pinned
         marker.addListener("mouseover", () => {
-          const cacheKey = loc.id;
-          const cached = cache.get(cacheKey);
-          if (cached) {
-            infoWindow.setContent(buildRichContent(cached));
-            infoWindow.open(map, marker);
-            return;
-          }
-
-          infoWindow.setContent(buildLoadingContent(loc.name));
-          infoWindow.open(map, marker);
-
-          // Step 1: textSearch to find the place and get a valid place_id
-          placesService.textSearch(
-            {
-              query: loc.name,
-              location: { lat: loc.latitude!, lng: loc.longitude! },
-              radius: 300,
-            },
-            (results, textStatus) => {
-              const placeId = results?.[0]?.place_id;
-              if (textStatus !== google.maps.places.PlacesServiceStatus.OK || !placeId) {
-                infoWindow.setContent(buildNameOnlyContent(loc.name));
-                return;
-              }
-
-              // Step 2: getDetails for rich fields not returned by textSearch
-              placesService.getDetails(
-                {
-                  placeId,
-                  fields: [
-                    "name", "rating", "user_ratings_total", "photos",
-                    "types", "price_level", "formatted_address",
-                    "editorial_summary", "opening_hours",
-                  ],
-                },
-                (place, detailStatus) => {
-                  if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place) {
-                    cache.set(cacheKey, place);
-                    infoWindow.setContent(buildRichContent(place));
-                  } else {
-                    // Fall back to whatever textSearch returned
-                    cache.set(cacheKey, results![0]);
-                    infoWindow.setContent(buildRichContent(results![0]));
-                  }
-                }
-              );
-            }
-          );
+          if (pinnedMarkerRef.current !== null) return;
+          showPreview(loc, marker);
         });
 
         marker.addListener("mouseout", () => {
+          if (pinnedMarkerRef.current !== null) return;
           infoWindow.close();
+        });
+
+        // Click: toggle pin on this marker
+        marker.addListener("click", () => {
+          if (pinnedMarkerRef.current === loc.id) {
+            // Already pinned here — unpin and close
+            pinnedMarkerRef.current = null;
+            infoWindow.close();
+          } else {
+            // Pin this marker
+            pinnedMarkerRef.current = loc.id;
+            showPreview(loc, marker);
+          }
         });
 
         googleMarkersRef.current.push(marker);
