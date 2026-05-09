@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRouteState } from "./hooks/useRouteState";
@@ -29,6 +29,16 @@ function WalkListApp() {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable references — must be before any early return to satisfy Rules of Hooks
+  const activeLocations = useMemo(
+    () => state?.plan.activeLocationIds.map((id: string) => state.locations[id]).filter(Boolean) ?? [],
+    [state?.plan.activeLocationIds, state?.locations]
+  );
+  const removedLocations = useMemo(
+    () => state?.plan.removedLocationIds.map((id: string) => state.locations[id]).filter(Boolean) ?? [],
+    [state?.plan.removedLocationIds, state?.locations]
+  );
+
   if (!state) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
@@ -36,9 +46,6 @@ function WalkListApp() {
       </div>
     );
   }
-
-  const activeLocations = state.plan.activeLocationIds.map(id => state.locations[id]).filter(Boolean);
-  const removedLocations = state.plan.removedLocationIds.map(id => state.locations[id]).filter(Boolean);
 
   function scheduleResultDismiss() {
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);

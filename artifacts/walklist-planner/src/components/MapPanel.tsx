@@ -257,6 +257,13 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure, sele
         streetViewControl: false,
         fullscreenControl: false,
       });
+      // Prevent map background clicks from closing a pinned InfoWindow
+      googleMapRef.current.addListener("click", () => {
+        if (pinnedMarkerRef.current && infoWindowRef.current) {
+          const entry = markerMapRef.current.get(pinnedMarkerRef.current);
+          if (entry) infoWindowRef.current.open(googleMapRef.current!, entry.marker);
+        }
+      });
     }
 
     const map = googleMapRef.current;
