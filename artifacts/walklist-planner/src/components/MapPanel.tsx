@@ -257,11 +257,12 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure, sele
         streetViewControl: false,
         fullscreenControl: false,
       });
-      // Prevent map background clicks from closing a pinned InfoWindow
+      // Map background click closes the pinned InfoWindow and clears selection
       googleMapRef.current.addListener("click", () => {
-        if (pinnedMarkerRef.current && infoWindowRef.current) {
-          const entry = markerMapRef.current.get(pinnedMarkerRef.current);
-          if (entry) infoWindowRef.current.open(googleMapRef.current!, entry.marker);
+        if (pinnedMarkerRef.current) {
+          pinnedMarkerRef.current = null;
+          infoWindowRef.current?.close();
+          onSelectLocationRef.current?.(null);
         }
       });
     }
