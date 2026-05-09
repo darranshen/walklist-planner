@@ -17,15 +17,6 @@ export function ActionButtons({
   return (
     <div className="flex flex-col gap-2 mb-8">
       <Button
-        variant="outline"
-        onClick={onAddClick}
-        className="w-full"
-        data-testid="button-add-location"
-      >
-        <Plus className="w-4 h-4 mr-2" />
-        Add Location
-      </Button>
-      <Button
         onClick={onOptimize}
         disabled={!canOptimize || isOptimizing}
         className="w-full"
@@ -37,6 +28,15 @@ export function ActionButtons({
           <Route className="w-4 h-4 mr-2" />
         )}
         {isOptimizing ? "Optimizing route..." : "Optimize Route"}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={onAddClick}
+        className="w-full"
+        data-testid="button-add-location"
+      >
+        <Plus className="w-4 h-4 mr-2" />
+        Add Location
       </Button>
     </div>
   );
