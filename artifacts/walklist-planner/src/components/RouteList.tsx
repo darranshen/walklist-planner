@@ -19,14 +19,20 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Location, RouteLeg, LegTransitStep, TransitMode } from "../types/route";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical, Loader2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical, Loader2, CheckCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
+
+export interface OptimizeResult {
+  type: "success" | "error";
+  message: string;
+}
 
 interface RouteListProps {
   activeLocations: Location[];
   legs: RouteLeg[];
   isMockMode: boolean;
   isOptimizing?: boolean;
+  optimizeResult?: OptimizeResult | null;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
@@ -262,6 +268,7 @@ export function RouteList({
   legs,
   isMockMode,
   isOptimizing = false,
+  optimizeResult,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -330,6 +337,21 @@ export function RouteList({
           </span>
         )}
       </div>
+
+      {optimizeResult && !isOptimizing && (
+        <div className={`flex items-start gap-2 rounded-md border px-3 py-2.5 mb-4 text-xs ${
+          optimizeResult.type === "success"
+            ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-900 dark:text-green-300"
+            : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-300"
+        }`}>
+          {optimizeResult.type === "success" ? (
+            <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          )}
+          <span>{optimizeResult.message}</span>
+        </div>
+      )}
 
       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-md p-3 mb-4 text-xs text-blue-800 dark:text-blue-300">
         Drag the <GripVertical className="inline w-3 h-3 -mt-0.5" /> handle or use the arrows to reorder stops. Changing order changes the route sequence only.
