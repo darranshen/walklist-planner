@@ -1,98 +1,6 @@
 import { Location, LegTransitStep, TransitMode, RouteLeg } from '../types/route';
 import { getHaversineDistance } from '../lib/haversine';
 
-export interface OptimizableLocation {
-  latitude: number | null;
-  longitude: number | null;
-}
-
-export function totalHaversineDistance<T extends OptimizableLocation>(locations: T[]): number {
-  let total = 0;
-  for (let i = 0; i < locations.length - 1; i++) {
-    const a = locations[i], b = locations[i + 1];
-    if (a.latitude != null && a.longitude != null && b.latitude != null && b.longitude != null) {
-      total += getHaversineDistance(a.latitude, a.longitude, b.latitude, b.longitude);
-    }
-  }
-  return total;
-}
-
-function nearestNeighborOrder<T extends OptimizableLocation>(locations: T[]): T[] {
-  if (locations.length <= 2) return locations;
-  const unvisited = [...locations];
-  const result: T[] = [unvisited.shift()!];
-  while (unvisited.length > 0) {
-    const current = result[result.length - 1];
-    let nearestIdx = 0;
-    let nearestDist = Infinity;
-    for (let i = 0; i < unvisited.length; i++) {
-      const loc = unvisited[i];
-      if (
-        current.latitude == null || current.longitude == null ||
-        loc.latitude == null || loc.longitude == null
-      ) continue;
-      const dist = getHaversineDistance(current.latitude, current.longitude, loc.latitude, loc.longitude);
-      if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
-    }
-    result.push(unvisited.splice(nearestIdx, 1)[0]);
-  }
-  return result;
-}
-
-function bestNearestNeighborOrder<T extends OptimizableLocation>(locations: T[]): T[] {
-  if (locations.length <= 2) return locations;
-  let best = nearestNeighborOrder(locations);
-  let bestDist = totalHaversineDistance(best);
-  // Try up to 8 different starting points to escape local optima
-  for (let start = 1; start < Math.min(locations.length, 8); start++) {
-    const rotated = [locations[start], ...locations.slice(0, start), ...locations.slice(start + 1)];
-    const result = nearestNeighborOrder(rotated);
-    const dist = totalHaversineDistance(result);
-    if (dist < bestDist) { bestDist = dist; best = result; }
-  }
-  return best;
-}
-
-export async function optimizeLocationsOrder<T extends OptimizableLocation>(
-  locations: T[],
-  isMockMode: boolean,
-): Promise<T[]> {
-  if (locations.length <= 2) return locations;
-
-  const hasCoords = locations.every(l => l.latitude != null && l.longitude != null);
-  if (!hasCoords) return locations;
-
-  if (!isMockMode && window.google?.maps && locations.length <= 25) {
-    try {
-      const origin = locations[0];
-      const destination = locations[locations.length - 1];
-      const intermediates = locations.slice(1, -1);
-
-      if (intermediates.length > 0) {
-        const directionsService = new window.google.maps.DirectionsService();
-        const result = await directionsService.route({
-          origin: { lat: origin.latitude!, lng: origin.longitude! },
-          destination: { lat: destination.latitude!, lng: destination.longitude! },
-          waypoints: intermediates.map(loc => ({
-            location: { lat: loc.latitude!, lng: loc.longitude! },
-            stopover: true,
-          })),
-          optimizeWaypoints: true,
-          travelMode: window.google.maps.TravelMode.WALKING,
-        });
-        const order = result.routes[0]?.waypoint_order;
-        if (order && order.length === intermediates.length) {
-          return [origin, ...order.map(i => intermediates[i]), destination];
-        }
-      }
-    } catch (e) {
-      console.warn('[routing] Waypoint optimization failed, falling back to nearest-neighbor:', e);
-    }
-  }
-
-  return bestNearestNeighborOrder(locations);
-}
-
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 }
@@ -143,7 +51,7 @@ function extractTransitSteps(steps: any[]): LegTransitStep[] {
   return result;
 }
 
-const LONG_WALK_THRESHOLD_MINUTES = 90;
+const LONG_WALK_THRESHOLD_MINUTES = 90; // flag legs > 90 min as unreasonably long
 
 function haversineLeg(from: Location, to: Location, index: number): RouteLeg {
   const distanceMeters =
@@ -227,6 +135,7 @@ export async function calculateRoute(
 
   const directionsService = new window.google.maps.DirectionsService();
 
+  // First: try the full multi-stop route in one request (faster, one API call)
   if (locations.length <= 10) {
     try {
       const origin = locations[0];
@@ -279,6 +188,7 @@ export async function calculateRoute(
     }
   }
 
+  // Fallback: calculate each leg individually so one bad leg doesn't break the rest
   const legs: RouteLeg[] = [];
   for (let i = 0; i < locations.length - 1; i++) {
     const leg = await routeSingleLeg(directionsService, locations[i], locations[i + 1], i);

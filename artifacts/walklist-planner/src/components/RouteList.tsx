@@ -177,7 +177,7 @@ function LocationCardInner({
   const isLast = index === total - 1;
 
   return (
-    <Card className={`p-4 pr-14 min-h-[86px] transition-all ${
+    <Card className={`relative p-4 pr-14 min-h-[86px] transition-all ${
       isDragging
         ? 'shadow-lg border-primary/50 bg-primary/5'
         : `hover:border-primary/30 ${isFirst ? 'border-primary/20 bg-primary/5' : ''}`
