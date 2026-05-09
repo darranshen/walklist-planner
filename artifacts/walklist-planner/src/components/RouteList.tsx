@@ -149,8 +149,6 @@ interface LocationCardProps {
   loc: Location;
   index: number;
   total: number;
-  leg: RouteLeg | undefined;
-  isMockMode: boolean;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
@@ -162,8 +160,6 @@ function LocationCardInner({
   loc,
   index,
   total,
-  leg,
-  isMockMode,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -174,67 +170,61 @@ function LocationCardInner({
   const isLast = index === total - 1;
 
   return (
-    <div className={`relative ${isDragging ? 'opacity-50' : ''}`}>
-      <Card className={`p-4 pr-14 min-h-[86px] transition-all ${
-        isDragging
-          ? 'shadow-lg border-primary/50 bg-primary/5 scale-[1.02] rotate-[0.5deg]'
-          : `hover:border-primary/30 ${isFirst ? 'border-primary/20 bg-primary/5' : ''}`
-      }`}>
-        <div className="flex items-start gap-3">
-          <button
-            className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
-            aria-label={`Drag to reorder ${loc.name}`}
-            tabIndex={-1}
-            {...dragHandleProps}
-          >
-            <GripVertical className="w-4 h-4" />
-          </button>
-          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">
-            {index + 1}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
-            <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
-          </div>
+    <Card className={`p-4 pr-14 min-h-[86px] transition-all ${
+      isDragging
+        ? 'shadow-lg border-primary/50 bg-primary/5'
+        : `hover:border-primary/30 ${isFirst ? 'border-primary/20 bg-primary/5' : ''}`
+    }`}>
+      <div className="flex items-start gap-3">
+        <button
+          className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
+          aria-label={`Drag to reorder ${loc.name}`}
+          tabIndex={-1}
+          {...dragHandleProps}
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">
+          {index + 1}
         </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
+          <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
+        </div>
+      </div>
 
-        <div className="absolute right-2 top-2 flex flex-col gap-1">
-          <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
-            <button
-              onClick={() => onMoveUp(index)}
-              disabled={isFirst}
-              className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              aria-label={`Move ${loc.name} earlier`}
-              data-testid={`button-up-${loc.id}`}
-            >
-              <ArrowUp className="w-3.5 h-3.5 text-foreground" />
-            </button>
-            <div className="w-[1px] bg-border" />
-            <button
-              onClick={() => onMoveDown(index)}
-              disabled={isLast}
-              className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-              aria-label={`Move ${loc.name} later`}
-              data-testid={`button-down-${loc.id}`}
-            >
-              <ArrowDown className="w-3.5 h-3.5 text-foreground" />
-            </button>
-          </div>
+      <div className="absolute right-2 top-2 flex flex-col gap-1">
+        <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
           <button
-            onClick={() => onRemove(loc.id)}
-            className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
-            aria-label={`Remove ${loc.name} from route`}
-            data-testid={`button-remove-${loc.id}`}
+            onClick={() => onMoveUp(index)}
+            disabled={isFirst}
+            className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            aria-label={`Move ${loc.name} earlier`}
+            data-testid={`button-up-${loc.id}`}
           >
-            <Trash2 className="w-4 h-4" />
+            <ArrowUp className="w-3.5 h-3.5 text-foreground" />
+          </button>
+          <div className="w-[1px] bg-border" />
+          <button
+            onClick={() => onMoveDown(index)}
+            disabled={isLast}
+            className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            aria-label={`Move ${loc.name} later`}
+            data-testid={`button-down-${loc.id}`}
+          >
+            <ArrowDown className="w-3.5 h-3.5 text-foreground" />
           </button>
         </div>
-      </Card>
-
-      {total > 1 && (
-        <LegConnector leg={leg} isMockMode={isMockMode} isLast={isLast} />
-      )}
-    </div>
+        <button
+          onClick={() => onRemove(loc.id)}
+          className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
+          aria-label={`Remove ${loc.name} from route`}
+          data-testid={`button-remove-${loc.id}`}
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </Card>
   );
 }
 
@@ -252,6 +242,7 @@ function SortableLocationCard(props: LocationCardProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.4 : undefined,
   };
 
   return (
@@ -353,19 +344,24 @@ export function RouteList({
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-3">
-            {activeLocations.map((loc, index) => (
-              <SortableLocationCard
-                key={loc.id}
-                loc={loc}
-                index={index}
-                total={activeLocations.length}
-                leg={legs[index]}
-                isMockMode={isMockMode}
-                onMoveUp={onMoveUp}
-                onMoveDown={onMoveDown}
-                onRemove={onRemove}
-              />
-            ))}
+            {activeLocations.map((loc, index) => {
+              const isLast = index === activeLocations.length - 1;
+              return (
+                <div key={loc.id}>
+                  <SortableLocationCard
+                    loc={loc}
+                    index={index}
+                    total={activeLocations.length}
+                    onMoveUp={onMoveUp}
+                    onMoveDown={onMoveDown}
+                    onRemove={onRemove}
+                  />
+                  {activeLocations.length > 1 && (
+                    <LegConnector leg={legs[index]} isMockMode={isMockMode} isLast={isLast} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </SortableContext>
 
@@ -376,12 +372,9 @@ export function RouteList({
                 loc={activeLocation}
                 index={activeIndex}
                 total={activeLocations.length}
-                leg={legs[activeIndex]}
-                isMockMode={isMockMode}
                 onMoveUp={() => {}}
                 onMoveDown={() => {}}
                 onRemove={() => {}}
-                isDragging={false}
               />
             </div>
           ) : null}
