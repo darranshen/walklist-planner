@@ -169,6 +169,7 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure, sele
   const placesCacheRef = useRef<Map<string, google.maps.places.PlaceResult>>(new Map());
   const pinnedMarkerRef = useRef<string | null>(null);
   const markerMapRef = useRef<Map<string, { loc: Location; marker: google.maps.Marker }>>(new Map());
+  const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const showPreviewFnRef = useRef<((loc: Location, marker: google.maps.Marker) => void) | null>(null);
   const onSelectLocationRef = useRef(onSelectLocation);
   // Keep the ref current on every render so event listeners never go stale
@@ -257,17 +258,21 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure, sele
         streetViewControl: false,
         fullscreenControl: false,
       });
-      // Map background click closes the pinned InfoWindow and clears selection
-      googleMapRef.current.addListener("click", () => {
-        if (pinnedMarkerRef.current) {
-          pinnedMarkerRef.current = null;
-          infoWindowRef.current?.close();
-          onSelectLocationRef.current?.(null);
-        }
-      });
     }
 
     const map = googleMapRef.current;
+
+    // Re-register map background click listener every effect run so it survives HMR and re-mounts
+    if (mapClickListenerRef.current) {
+      google.maps.event.removeListener(mapClickListenerRef.current);
+    }
+    mapClickListenerRef.current = map.addListener("click", () => {
+      if (pinnedMarkerRef.current) {
+        pinnedMarkerRef.current = null;
+        infoWindowRef.current?.close();
+        onSelectLocationRef.current?.(null);
+      }
+    });
 
     googleMarkersRef.current.forEach(m => m.setMap(null));
     googlePolylinesRef.current.forEach(p => p.setMap(null));
