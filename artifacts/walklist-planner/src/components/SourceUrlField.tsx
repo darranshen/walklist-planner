@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -116,9 +115,6 @@ export function SourceUrlField({ initialUrl, hasExistingLocations, onUpdate, onI
   return (
     <>
       <div className="mb-6 space-y-2">
-        <Label htmlFor="source-url" className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-          Source: Google Maps Shared List (optional)
-        </Label>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
