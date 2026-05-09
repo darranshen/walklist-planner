@@ -292,3 +292,9 @@
     inset: -1px;
   }
 }
+
+/* Google Places Autocomplete dropdown — must sit above Radix Dialog (z-50) */
+.pac-container {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
