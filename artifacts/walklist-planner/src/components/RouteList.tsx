@@ -38,7 +38,6 @@ interface RouteListProps {
   onRemove: (id: string) => void;
   onReorder: (newIds: string[]) => void;
   onAddClick: () => void;
-  onLoadSample: () => void;
 }
 
 function transitIcon(mode: TransitMode) {
@@ -180,7 +179,7 @@ function LocationCardInner({
     <Card className={`relative p-4 pr-14 min-h-[86px] transition-all ${
       isDragging
         ? 'shadow-lg border-primary/50 bg-primary/5'
-        : `hover:border-primary/30 ${isFirst ? 'border-primary/20 bg-primary/5' : ''}`
+        : 'hover:border-primary/30'
     }`}>
       <div className="flex items-start gap-3">
         <button
@@ -274,7 +273,6 @@ export function RouteList({
   onRemove,
   onReorder,
   onAddClick,
-  onLoadSample,
 }: RouteListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -315,10 +313,7 @@ export function RouteList({
         <Card className="p-8 text-center border-dashed bg-muted/30">
           <MapPin className="w-8 h-8 mx-auto mb-3 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground mb-4">Add at least two locations to generate a walking route.</p>
-          <div className="flex flex-col gap-2">
-            <Button size="sm" onClick={onAddClick} data-testid="button-empty-add">Add Location</Button>
-            <Button size="sm" variant="outline" onClick={onLoadSample} data-testid="button-empty-sample">Load Sample Route</Button>
-          </div>
+          <Button size="sm" onClick={onAddClick} data-testid="button-empty-add">Add Location</Button>
         </Card>
       </div>
     );

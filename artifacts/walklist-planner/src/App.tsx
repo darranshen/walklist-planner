@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRouteState } from "./hooks/useRouteState";
+import { optimizeLocationsOrder, totalHaversineDistance } from "./services/routing";
+import { Location } from "./types/route";
 import { X } from "lucide-react";
 
 // Components
@@ -10,6 +12,7 @@ import { SourceUrlField } from "./components/SourceUrlField";
 import { ActionButtons } from "./components/ActionButtons";
 import { AddLocationModal } from "./components/AddLocationModal";
 import { RouteList } from "./components/RouteList";
+import type { OptimizeResult } from "./components/RouteList";
 import { RemovedLocations } from "./components/RemovedLocations";
 import { RouteSummary } from "./components/RouteSummary";
 import { MapPanel } from "./components/MapPanel";
@@ -18,9 +21,22 @@ import { InfoBar } from "./components/InfoBar";
 
 const queryClient = new QueryClient();
 
+function formatOptimizeMessage(totalMeters: number, isMockMode: boolean): string {
+  const totalMiles = (totalMeters / 1609.34).toFixed(1);
+  const totalMinutes = Math.round(totalMeters / 80);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const timeStr = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
+  const suffix = isMockMode ? "" : " (estimated)";
+  return `Route optimized: ${totalMiles} mi, ${timeStr}${suffix}`;
+}
+
 function WalkListApp() {
   const { state, actions } = useRouteState();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizeResult, setOptimizeResult] = useState<OptimizeResult | null>(null);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!state) {
     return (
@@ -32,6 +48,39 @@ function WalkListApp() {
 
   const activeLocations = state.plan.activeLocationIds.map(id => state.locations[id]).filter(Boolean);
   const removedLocations = state.plan.removedLocationIds.map(id => state.locations[id]).filter(Boolean);
+
+  function scheduleResultDismiss() {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    dismissTimerRef.current = setTimeout(() => setOptimizeResult(null), 6000);
+  }
+
+  function showSuccess(totalMeters: number) {
+    setOptimizeResult({ type: "success", message: formatOptimizeMessage(totalMeters, state!.isMockMode) });
+    scheduleResultDismiss();
+  }
+
+  function showError(message: string) {
+    setOptimizeResult({ type: "error", message });
+    scheduleResultDismiss();
+  }
+
+  async function handleManualOptimize() {
+    if (activeLocations.length < 2 || isOptimizing) return;
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    setIsOptimizing(true);
+    setOptimizeResult(null);
+    const prevIds = activeLocations.map((l: Location) => l.id);
+    try {
+      const optimized = await optimizeLocationsOrder(activeLocations, state!.isMockMode);
+      actions.reorderLocations(optimized.map((l: Location) => l.id));
+      showSuccess(totalHaversineDistance(optimized));
+    } catch {
+      actions.reorderLocations(prevIds);
+      showError("Optimization failed. Your previous route order was kept.");
+    } finally {
+      setIsOptimizing(false);
+    }
+  }
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-background">
@@ -62,8 +111,17 @@ function WalkListApp() {
                 state.plan.removedLocationIds.length > 0
               }
               onUpdate={actions.updateSourceUrl}
-              onImport={(locs, keepExisting) => {
-                const mapped = locs.map((l) => ({
+              onImport={async (locs, keepExisting) => {
+                if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+                setIsOptimizing(true);
+                setOptimizeResult(null);
+                let optimizedLocs = locs;
+                try {
+                  optimizedLocs = await optimizeLocationsOrder(locs, state.isMockMode);
+                } catch {
+                  // fall through with original order
+                }
+                const mapped = optimizedLocs.map((l) => ({
                   name: l.name,
                   address: l.address,
                   latitude: l.latitude,
@@ -74,22 +132,27 @@ function WalkListApp() {
                 } else {
                   actions.bulkReplaceLocations(mapped);
                 }
+                showSuccess(totalHaversineDistance(optimizedLocs));
+                setIsOptimizing(false);
               }}
             />
             <ActionButtons
               onAddClick={() => setIsAddModalOpen(true)}
-              onLoadSample={actions.loadSampleRoute}
+              onOptimize={handleManualOptimize}
+              isOptimizing={isOptimizing}
+              canOptimize={activeLocations.length >= 2}
             />
             <RouteList
               activeLocations={activeLocations}
               legs={state.legs}
               isMockMode={state.isMockMode}
+              isOptimizing={isOptimizing}
+              optimizeResult={optimizeResult}
               onMoveUp={actions.moveLocationUp}
               onMoveDown={actions.moveLocationDown}
               onRemove={actions.removeLocation}
               onReorder={actions.reorderLocations}
               onAddClick={() => setIsAddModalOpen(true)}
-              onLoadSample={actions.loadSampleRoute}
             />
             <RemovedLocations
               locations={removedLocations}
