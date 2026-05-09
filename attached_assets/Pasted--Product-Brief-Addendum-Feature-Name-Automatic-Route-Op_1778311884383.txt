@@ -1,0 +1,772 @@
+# Product Brief Addendum
+
+## Feature Name
+
+Automatic Route Optimization
+
+## Feature Type
+
+New Feature Update
+
+## One-Sentence Description
+
+When users import or load locations from a Google Maps shared list, the app should automatically suggest an optimized walking route that minimizes total walking distance and time across all active locations.
+
+---
+
+## 1. Feature Overview
+
+### Problem
+
+When a user imports a Google Maps shared list, the saved locations may appear in the same order as the original list, but that order is not necessarily the best walking route. Users may have to manually reorder many locations to reduce backtracking, walking distance, and total travel time.
+
+### Solution
+
+Add an automatic route optimization feature. After locations are imported or loaded, the app should calculate a suggested route order that minimizes total walking distance and estimated walking time. The optimized order should become the active route order, while still allowing users to manually adjust the order afterward using drag-and-drop or move controls.
+
+### Primary User
+
+A user planning a walking route from multiple saved Google Maps locations who wants the app to recommend an efficient route order automatically.
+
+### Why This Feature Should Exist
+
+The core value of WalkList Planner is helping users turn saved places into a practical walking route. Automatic optimization reduces manual planning effort and makes the app immediately useful after import.
+
+---
+
+## 2. Goals and Non-Goals
+
+### Product Goals
+
+This feature should help users:
+
+* Automatically create a more efficient walking route after importing locations.
+* Minimize total walking distance and estimated walking time.
+* Reduce route backtracking.
+* Understand that the optimized route is a suggestion they can still edit.
+* Continue manually reordering stops after optimization if desired.
+
+### Business Goals
+
+This feature should help the creator:
+
+* Make the app feel substantially more useful than a basic map/list interface.
+* Improve first-run value after a Google Maps shared list is imported.
+* Differentiate the app from manually editing directions in Google Maps.
+* Create a stronger demo experience for route planning use cases.
+
+### Non-Goals
+
+This feature will not include:
+
+* Guaranteed mathematically perfect optimization for very large lists.
+* Real-time traffic-based walking optimization.
+* Multi-modal route optimization across walking, transit, driving, and biking.
+* Opening hours optimization.
+* User preference optimization, such as scenic routes, food priority, or accessibility.
+* Multiple route alternatives in the first version.
+* Optimizing across multiple days.
+* Collaborative optimization.
+
+---
+
+## 3. Users and Use Cases
+
+### Primary User
+
+#### User Type
+
+Walking route planner
+
+#### Description
+
+A person importing several saved locations from Google Maps who wants a good route order without manually testing every possible sequence.
+
+#### Goals
+
+* Import or load multiple locations.
+* Automatically get a sensible walking order.
+* Reduce total distance and walking time.
+* Avoid obvious backtracking.
+* Still adjust the route manually afterward.
+
+#### Pain Points
+
+* Imported locations may be unordered or ordered by save time.
+* Manually reordering many stops is tedious.
+* It is hard to know which stop should come first, second, or last.
+* Users may not know whether their route is efficient.
+
+### Core Use Cases
+
+* User imports a Google Maps shared list and receives an optimized route order.
+* User clicks “Optimize Route” after manually adding or editing the active location set.
+* User removes a location and re-optimizes the remaining route.
+* User restores a location and re-optimizes the route.
+* User accepts the optimized order but manually adjusts one or two stops afterward.
+
+### Jobs To Be Done
+
+* When I import a saved list of places, I want the app to suggest the best walking order, so I do not have to manually plan the route.
+* When I have many stops, I want the app to reduce total walking distance, so I can spend less time walking between places.
+* When the app changes my route order, I want to still be able to edit it, so I can account for my own preferences.
+
+---
+
+## 4. Business/Product Requirements and User Stories
+
+| ID          | Requirement                                                                                                                             | User Story                                                                                                                                       | Priority  | Notes                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| REQ-OPT-001 | The app must automatically optimize the active route order after a new Google Maps shared list is imported and locations are loaded.    | As a user, I want imported locations to be ordered efficiently, so that I can start with a useful walking route.                                 | Must Have | Trigger optimization after successful import/load of 2 or more locations.                                                    |
+| REQ-OPT-002 | The app must provide a manual “Optimize Route” button.                                                                                  | As a user, I want to optimize my current active locations on demand, so that I can improve the route after adding, removing, or restoring stops. | Must Have | Button should be visible near the route summary or active route controls.                                                    |
+| REQ-OPT-003 | The app must optimize for walking distance and estimated walking time.                                                                  | As a user, I want the route to minimize total walking effort, so that the walk is practical.                                                     | Must Have | Use walking distance/time from the routing API when available. Use approximate straight-line distance fallback in mock mode. |
+| REQ-OPT-004 | The app must update `activeLocationIds` to reflect the optimized route order.                                                           | As a user, I want the optimized route to become my current route, so that the map and list match.                                                | Must Have | `activeLocationIds` remains the source of truth for route order.                                                             |
+| REQ-OPT-005 | The app must recalculate the walking route, walking times, total walking time, total distance, and marker numbering after optimization. | As a user, I want all route details to update after optimization, so that I can evaluate the new route.                                          | Must Have | Same recalculation behavior as drag-and-drop reorder.                                                                        |
+| REQ-OPT-006 | The app must preserve all location details during optimization.                                                                         | As a user, I want optimization to change only route order, so that my saved places are not modified.                                             | Must Have | Do not edit location name, address, coordinates, status, or place ID.                                                        |
+| REQ-OPT-007 | The app must show a loading state while optimization is running.                                                                        | As a user, I want to know the app is working, so that I do not repeatedly click buttons or think it froze.                                       | Must Have | Example: “Optimizing route…”                                                                                                 |
+| REQ-OPT-008 | The app must show a clear success summary after optimization.                                                                           | As a user, I want to understand what changed, so that I can trust the optimized route.                                                           | Must Have | Example: “Optimized route: 4.2 mi, 82 min.”                                                                                  |
+| REQ-OPT-009 | The app must allow users to manually reorder the route after optimization.                                                              | As a user, I want to adjust the optimized order, so that I can account for personal preferences.                                                 | Must Have | Drag-and-drop and move buttons remain available.                                                                             |
+| REQ-OPT-010 | The app must handle optimization failure gracefully.                                                                                    | As a user, I want the app to preserve my current route if optimization fails, so that I do not lose my plan.                                     | Must Have | Show error and keep the previous route order.                                                                                |
+| REQ-OPT-011 | The app should avoid excessive routing API calls for large lists.                                                                       | As a user, I want the app to remain responsive, so that optimization does not become slow or unreliable.                                         | Must Have | For MVP, use a practical heuristic instead of brute-forcing all permutations for larger lists.                               |
+
+### Priority Definitions
+
+| Priority   | Meaning                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| Must Have  | Required for this feature release. The feature is incomplete without this. |
+| Won’t Have | Explicitly excluded from this feature release.                             |
+
+---
+
+## 5. Feature Scope
+
+### Feature Summary
+
+This feature adds automatic route optimization after Google Maps list import and as an on-demand action. The app should suggest an efficient route order across all active locations, then update the map, walking route, walking times, total walking time, total distance, and marker numbering.
+
+### Must Have
+
+These items are required for this feature:
+
+* Automatic optimization after imported locations load.
+* Manual “Optimize Route” button.
+* Optimization based on walking distance and estimated walking time.
+* Updated active route order after optimization.
+* Updated map marker numbering.
+* Updated walking route.
+* Updated walking times between stops.
+* Updated total walking time.
+* Updated total walking distance.
+* Loading state while optimization runs.
+* Success state after optimization completes.
+* Error state if optimization fails.
+* Preserve previous route order if optimization fails.
+* Manual reorder still available after optimization.
+* Location details remain unchanged.
+* Practical optimization approach that works for MVP-sized lists.
+
+### Out of Scope
+
+Do not build these as part of this feature:
+
+* Perfect mathematical optimization for very large lists.
+* Multiple route alternatives.
+* Automatic route optimization across multiple days.
+* Opening hours-based optimization.
+* Accessibility-based optimization.
+* Scenic route optimization.
+* Food/category preference optimization.
+* Weather-aware optimization.
+* Real-time collaborative optimization.
+* Transit, biking, or driving optimization.
+* Editing location details during optimization.
+
+---
+
+## 6. User Flows
+
+### Flow 1: Auto-Optimize After Google Maps Import
+
+1. User imports or loads a Google Maps shared list.
+2. App extracts or receives the saved locations.
+3. App validates that at least 2 active locations are available.
+4. App shows a loading state: “Optimizing route…”
+5. App calculates an optimized walking order.
+6. App updates `activeLocationIds` with the optimized order.
+7. App recalculates the walking route, walking times, total walking time, and total distance.
+8. App updates the map route and marker numbers.
+9. App shows a success message with the optimized route summary.
+10. User can manually adjust the optimized route if desired.
+
+### Flow 2: Manual Optimize Route
+
+1. User views the active route list.
+2. User clicks “Optimize Route.”
+3. App checks that at least 2 active locations are available.
+4. App shows “Optimizing route…”
+5. App calculates the optimized order.
+6. App updates the active route order.
+7. App recalculates route details.
+8. User sees the optimized route on the map.
+9. User can keep the result or manually reorder stops.
+
+### Flow 3: Optimization After Adding or Restoring Locations
+
+1. User adds or restores a location.
+2. App updates the active route list.
+3. User clicks “Optimize Route.”
+4. App calculates a new optimized order using all active locations.
+5. App updates the route order and route details.
+6. User sees the new optimized route.
+
+### Flow 4: Optimization Failure
+
+1. User clicks “Optimize Route” or imports a list.
+2. App attempts to calculate the optimized route.
+3. Optimization fails because routing data is unavailable or an API call fails.
+4. App preserves the previous active route order.
+5. App shows a friendly error message.
+6. User can continue using the existing route order or manually reorder stops.
+
+---
+
+## 7. Data Model Impact
+
+### Data Storage Choice
+
+For this feature, continue to use:
+
+* [x] Local storage
+* [ ] Replit database
+* [ ] Supabase
+* [ ] Firebase
+* [ ] Postgres
+* [ ] Other: Not needed for this feature
+
+Recommended choice:
+Continue using local storage. Route optimization changes the route order and recalculated route metadata, but it does not require authentication, a backend, or a database for the MVP.
+
+### Impacted Entity: RoutePlan
+
+Description:
+The route plan stores the active route order and route summary. Optimization updates the active route order and recalculated route metadata.
+
+| Field               | Type     | Required? | Notes                                                   |
+| ------------------- | -------- | --------- | ------------------------------------------------------- |
+| activeLocationIds   | string[] | Yes       | Updated to the optimized route order.                   |
+| totalWalkingMinutes | number   | No        | Recalculated after optimization.                        |
+| totalDistanceMeters | number   | No        | Recalculated after optimization.                        |
+| optimizationStatus  | string   | No        | Optional UI state: idle, optimizing, optimized, failed. |
+| lastOptimizedAt     | datetime | No        | Timestamp of last successful optimization.              |
+| updatedAt           | datetime | Yes       | Updated after successful optimization.                  |
+
+### Impacted Entity: Location
+
+Description:
+Location data should not be modified during route optimization.
+
+| Field     | Type   | Required? | Notes                                                                          |
+| --------- | ------ | --------- | ------------------------------------------------------------------------------ |
+| id        | string | Yes       | Used to update optimized route order.                                          |
+| name      | string | Yes       | Must remain unchanged.                                                         |
+| address   | string | Yes       | Must remain unchanged.                                                         |
+| latitude  | number | No        | Used for distance calculations. Must remain unchanged.                         |
+| longitude | number | No        | Used for distance calculations. Must remain unchanged.                         |
+| placeId   | string | No        | May be used by routing API. Must remain unchanged.                             |
+| status    | string | Yes       | Must remain unchanged unless user explicitly removes or restores the location. |
+
+### New Utility Structure: OptimizationResult
+
+Description:
+An internal object returned by the optimization function.
+
+| Field               | Type       | Required? | Notes                                                   |
+| ------------------- | ---------- | --------- | ------------------------------------------------------- |
+| orderedLocationIds  | string[]   | Yes       | Optimized order of active locations.                    |
+| totalWalkingMinutes | number     | No        | Total route time from optimized route.                  |
+| totalDistanceMeters | number     | No        | Total route distance from optimized route.              |
+| routeLegs           | RouteLeg[] | No        | Recalculated legs for optimized route.                  |
+| method              | string     | Yes       | Example: nearest_neighbor, two_opt, api_optimized, mock |
+| createdAt           | datetime   | Yes       | Timestamp of optimization result.                       |
+
+### Relationships
+
+| Entity             | Relationship              | Related Entity |
+| ------------------ | ------------------------- | -------------- |
+| RoutePlan          | has ordered list of       | Location       |
+| RoutePlan          | has many                  | RouteLeg       |
+| OptimizationResult | uses many                 | Location       |
+| OptimizationResult | produces ordered list for | RoutePlan      |
+
+### Validation Rules
+
+* Optimization requires at least 2 active locations.
+* Optimization must only use active locations.
+* Removed locations must not be included in optimization.
+* Optimized `activeLocationIds` must contain the same active location IDs as before optimization.
+* Optimized `activeLocationIds` must not duplicate location IDs.
+* Optimized `activeLocationIds` must not delete active location IDs.
+* Optimization must not modify location details.
+* If optimization fails, preserve the previous `activeLocationIds`.
+* If there are exactly 2 active locations, optimization may keep the order unchanged unless start/end behavior is configured.
+
+### Example Data Change
+
+Before optimization:
+
+```json
+{
+  "activeLocationIds": ["loc-1", "loc-2", "loc-3", "loc-4"],
+  "totalWalkingMinutes": 94,
+  "totalDistanceMeters": 6100
+}
+```
+
+After optimization:
+
+```json
+{
+  "activeLocationIds": ["loc-1", "loc-3", "loc-4", "loc-2"],
+  "totalWalkingMinutes": 71,
+  "totalDistanceMeters": 4600,
+  "optimizationStatus": "optimized",
+  "lastOptimizedAt": "2026-05-09T12:00:00Z"
+}
+```
+
+The `Location` objects remain unchanged.
+
+---
+
+## 8. Screens and UI Requirements
+
+### Screen: Planner Screen
+
+Purpose:
+Allow users to optimize the route after import or while editing the active route.
+
+Required elements:
+
+* “Optimize Route” button near the active route controls or route summary.
+* Loading state while route optimization is running.
+* Route summary showing total walking time and total distance.
+* Success message after optimization.
+* Error message if optimization fails.
+* Active route list updated to optimized order.
+* Map route updated to optimized order.
+* Marker numbers updated to optimized order.
+
+### Optimize Route Button
+
+Required behavior:
+
+* Button label: “Optimize Route”
+* Button should be disabled when fewer than 2 active locations exist.
+* Button should show loading state while optimization is running.
+* Button should not trigger multiple simultaneous optimization attempts.
+* Button should be visible after locations are loaded.
+
+Suggested button states:
+
+```txt
+Optimize Route
+Optimizing...
+Optimized
+```
+
+### Optimization Success Message
+
+Suggested message:
+
+```txt
+Route optimized: 4.6 mi, 71 min.
+You can still drag stops to adjust the order.
+```
+
+### Optimization Error Message
+
+Suggested message:
+
+```txt
+We could not optimize this route. Your current stop order was preserved.
+```
+
+### Route List UI
+
+Required behavior:
+
+* Route cards should reorder after optimization.
+* Numbered stop badges should update after optimization.
+* Existing drag-and-drop reorder controls should remain available.
+* Existing move earlier / move later controls should remain available.
+
+---
+
+## 9. Functional Requirements
+
+### Automatic Optimization
+
+* App automatically runs route optimization after a new Google Maps shared list is imported and locations are successfully loaded.
+* App only auto-optimizes when there are at least 2 active locations.
+* App shows a loading state while optimization runs.
+* App updates active route order after successful optimization.
+* App recalculates route details after successful optimization.
+* App shows a success message after optimization completes.
+
+### Manual Optimization
+
+* User can click “Optimize Route” at any time when there are at least 2 active locations.
+* Manual optimization uses the current set of active locations.
+* Manual optimization excludes removed locations.
+* Manual optimization updates route order after success.
+* Manual optimization preserves location details.
+* Manual optimization shows an error if it cannot complete.
+
+### Optimization Logic
+
+* For MVP-sized lists, use a practical heuristic rather than brute-force permutations.
+* Recommended approach:
+
+  * Use nearest-neighbor to generate an initial route.
+  * Optionally apply a 2-opt improvement pass to reduce obvious backtracking.
+  * Use walking distance/time from the routing API where practical.
+  * Use straight-line distance as a fallback when routing API data is unavailable.
+* Optimization should prioritize minimizing total walking distance.
+* If walking time estimates are available, use them as a secondary optimization signal.
+* If the app supports a fixed start or fixed end later, preserve those constraints. For this version, assume all active stops can be reordered.
+
+### Route Recalculation
+
+* After optimization, recalculate walking route.
+* After optimization, recalculate walking times between stops.
+* After optimization, recalculate total walking time.
+* After optimization, recalculate total distance.
+* After optimization, update marker numbering.
+* Save optimized route state to local storage.
+
+---
+
+## 10. Non-Functional Requirements
+
+### Usability
+
+* Users should understand that optimization changes route order only.
+* Users should be able to manually adjust the optimized order afterward.
+* The optimization result should feel transparent, not mysterious.
+* The app should show a simple summary of the optimized route.
+
+### Performance
+
+* Avoid brute-force optimization for lists larger than 8 locations.
+* Use a heuristic algorithm for better performance.
+* Avoid excessive routing API calls.
+* Avoid running multiple optimization requests at the same time.
+* App should remain responsive for up to 20 active locations.
+
+### Reliability
+
+* If optimization fails, keep the previous route order.
+* If routing API data is unavailable, use fallback distance estimates when possible.
+* If fallback optimization is used, clearly mark walking times and distances as approximate.
+* Optimization should not delete, duplicate, or corrupt location IDs.
+
+### Accessibility
+
+* The “Optimize Route” button should have a clear label.
+* Loading and error states should be announced visually.
+* Manual reordering controls should remain available.
+* Color should not be the only indicator of optimization status.
+
+---
+
+## 11. Technical Approach
+
+### Recommended Optimization Approach
+
+Use a practical route optimization heuristic suitable for an MVP.
+
+Recommended first version:
+
+1. Build a distance matrix for active locations.
+2. Use walking route distance/time from API if available.
+3. Fall back to straight-line distance if API data is unavailable.
+4. Generate an initial route using nearest-neighbor.
+5. Apply a 2-opt improvement pass to reduce backtracking.
+6. Return the optimized ordered list of location IDs.
+7. Recalculate final route details using the existing routing service.
+
+### Why Not Brute Force
+
+A brute-force route optimizer checks every possible route order. This becomes too slow as the number of locations grows. For example:
+
+```txt
+5 locations = 120 possible orders
+8 locations = 40,320 possible orders
+10 locations = 3,628,800 possible orders
+```
+
+For the MVP, use nearest-neighbor plus optional 2-opt because it is fast, practical, and good enough for walking route planning.
+
+### Suggested Files
+
+```txt
+src/
+├── services/
+│   ├── optimizationService.js
+│   ├── routingService.js
+│   └── geocodingService.js
+├── utils/
+│   ├── distanceMatrix.js
+│   ├── nearestNeighbor.js
+│   ├── twoOpt.js
+│   └── routeCalculations.js
+├── components/
+│   ├── RouteSummary.jsx
+│   ├── RouteList.jsx
+│   └── OptimizeRouteButton.jsx
+```
+
+### Suggested Function Signatures
+
+```js
+async function optimizeRoute(activeLocationIds, locationsById, options = {}) {
+  // Return OptimizationResult
+}
+```
+
+```js
+function buildDistanceMatrix(activeLocations) {
+  // Return matrix of estimated distance/time between locations
+}
+```
+
+```js
+function nearestNeighborRoute(startLocationId, activeLocationIds, distanceMatrix) {
+  // Return ordered location IDs
+}
+```
+
+```js
+function improveRouteWithTwoOpt(orderedLocationIds, distanceMatrix) {
+  // Return improved ordered location IDs
+}
+```
+
+### OptimizationResult Example
+
+```json
+{
+  "orderedLocationIds": ["loc-1", "loc-3", "loc-4", "loc-2"],
+  "totalWalkingMinutes": 71,
+  "totalDistanceMeters": 4600,
+  "method": "nearest_neighbor_two_opt",
+  "createdAt": "2026-05-09T12:00:00Z"
+}
+```
+
+### Implementation Notes
+
+* Keep `activeLocationIds` as the route order source of truth.
+* Optimization should update `activeLocationIds`, not the `locations` data.
+* Do not include removed locations in the optimizer.
+* Do not mutate the original arrays directly.
+* Preserve previous route order in memory before running optimization.
+* If optimization fails, restore or keep the previous route order.
+* Run route recalculation only after the optimized order is selected.
+* Use clear loading state to prevent duplicate optimization calls.
+
+---
+
+## 12. Assumptions
+
+* Assumption: Imported locations include enough information to geocode or route them.
+* Assumption: Optimization applies only to active locations.
+* Assumption: Removed locations are excluded from optimization.
+* Assumption: All active stops can be reordered for this version.
+* Assumption: There is no fixed start or fixed end in this version.
+* Assumption: The optimized route is a recommendation, and the user can manually reorder afterward.
+* Assumption: The MVP does not need a mathematically perfect route for large lists.
+* Assumption: The app should optimize primarily for distance and secondarily for estimated walking time.
+* Assumption: If walking route data is unavailable, approximate straight-line distance is acceptable for mock mode.
+* Assumption: The app continues to use local storage for persistence.
+
+---
+
+## 13. Acceptance Criteria
+
+### Auto-Optimization After Import
+
+* Given a user imports a Google Maps shared list with at least 2 locations, when the locations finish loading, then the app automatically starts route optimization.
+* Given optimization is running, then the app shows “Optimizing route…”
+* Given optimization succeeds, then the active route list updates to the optimized order.
+* Given optimization succeeds, then the map route, marker numbers, walking times, total walking time, and total distance update.
+* Given optimization succeeds, then the app shows a route optimization success message.
+
+### Manual Optimization
+
+* Given there are at least 2 active locations, when the user clicks “Optimize Route,” then the app optimizes the current active route order.
+* Given there are fewer than 2 active locations, then the “Optimize Route” button is disabled or shows a helpful message.
+* Given the user clicks “Optimize Route” multiple times quickly, then the app should not run multiple simultaneous optimization jobs.
+
+### Data Integrity
+
+* Given optimization succeeds, then `activeLocationIds` contains the same location IDs as before, only in a different order.
+* Given optimization succeeds, then no location IDs are duplicated.
+* Given optimization succeeds, then no active location IDs are removed.
+* Given optimization succeeds, then removed locations remain removed.
+* Given optimization succeeds, then location name, address, coordinates, status, and place ID remain unchanged.
+
+### Route Updates
+
+* Given optimization changes the route order, then walking times between stops recalculate.
+* Given optimization changes the route order, then total walking time recalculates.
+* Given optimization changes the route order, then total distance recalculates.
+* Given optimization changes the route order, then marker numbering updates to match the route list.
+* Given optimization returns the same order, then the app still shows the current route summary clearly.
+
+### Error Handling
+
+* Given optimization fails, then the previous route order is preserved.
+* Given optimization fails, then the app shows: “We could not optimize this route. Your current stop order was preserved.”
+* Given routing API data is unavailable, then the app uses approximate fallback optimization if possible.
+* Given fallback estimates are used, then the app labels the result as approximate.
+
+### Manual Editing After Optimization
+
+* Given the route has been optimized, when the user drags a location to a new position, then the app updates the route based on the user’s manual order.
+* Given the route has been optimized, when the user clicks move earlier or move later, then the app updates the route based on the user’s manual order.
+* Given the user manually changes the optimized route, then the app recalculates route details.
+
+### Persistence
+
+* Given optimization succeeds, when the user refreshes the page, then the optimized route order is restored from local storage.
+* Given optimization fails, when the user refreshes the page, then the last valid route order is restored.
+
+---
+
+## 14. Error and Empty States
+
+### Empty State: Not Enough Locations
+
+Message:
+“Add at least two locations to optimize a walking route.”
+
+### Loading State: Optimization Running
+
+Message:
+“Optimizing route…”
+
+### Success State: Optimization Complete
+
+Message:
+“Route optimized: [distance], [time]. You can still drag stops to adjust the order.”
+
+### Error State: Optimization Failed
+
+Message:
+“We could not optimize this route. Your current stop order was preserved.”
+
+### Warning State: Approximate Optimization
+
+Message:
+“Route optimized using approximate distances. Walking times may vary.”
+
+---
+
+## 15. Future Enhancements
+
+* Let users choose fixed start location.
+* Let users choose fixed end location.
+* Let users choose round-trip route behavior.
+* Show before/after distance and time savings.
+* Show multiple route alternatives.
+* Add “Undo optimization.”
+* Add route preference controls, such as shortest distance, shortest time, fewer hills, or scenic route.
+* Add opening hours-aware optimization.
+* Add accessibility-aware optimization.
+* Add multi-day itinerary optimization.
+* Add export to Google Maps directions.
+
+---
+
+## 16. Replit-Specific AI Coding Instructions
+
+When implementing this feature in Replit:
+
+1. Add an `OptimizeRouteButton` component.
+2. Add an `optimizationService.js` service.
+3. Use `activeLocationIds` as the source of truth for route order.
+4. Run automatic optimization after imported Google Maps locations successfully load.
+5. Add a manual “Optimize Route” button near the route summary or active route controls.
+6. Disable optimization when there are fewer than 2 active locations.
+7. Exclude removed locations from optimization.
+8. Preserve the current route order before running optimization.
+9. If optimization succeeds, update `activeLocationIds` with the optimized order.
+10. If optimization fails, keep the previous route order.
+11. Do not modify location objects during optimization.
+12. Do not edit location name, address, coordinates, status, or place ID during optimization.
+13. Recalculate route legs after optimization completes.
+14. Recalculate walking times, total walking time, and total distance after optimization completes.
+15. Update map marker numbering after optimization completes.
+16. Save the optimized route state to local storage.
+17. Show “Optimizing route…” while optimization is running.
+18. Show a success message after optimization completes.
+19. Show a friendly error if optimization fails.
+20. Use a practical heuristic instead of brute force for larger lists.
+21. Recommended algorithm:
+
+    * Build a distance matrix.
+    * Run nearest-neighbor.
+    * Apply a 2-opt improvement pass if feasible.
+    * Return the optimized ordered location IDs.
+22. Use routing API distance/time when available.
+23. Use straight-line distance fallback in mock mode.
+24. Do not call routing APIs excessively or continuously.
+25. Keep drag-and-drop and move buttons available after optimization.
+
+---
+
+## 17. Replit Build Prompt
+
+Add an automatic route optimization feature to the existing WalkList Planner React app.
+
+The app already allows users to import or load Google Maps saved locations, view locations on a map, manage an active route list, remove and restore locations, reorder locations manually, and view walking times, total walking time, and total distance.
+
+This new feature should optimize the active route order so that the user walks the shortest practical route across all active locations.
+
+Core requirements:
+
+* Automatically optimize the route after a new Google Maps shared list is imported and saved locations finish loading.
+* Add a manual “Optimize Route” button near the route summary or route controls.
+* Only optimize active locations.
+* Exclude removed locations.
+* Use `activeLocationIds` as the source of truth for route order.
+* Optimization should update `activeLocationIds` only.
+* Optimization must not edit location names, addresses, coordinates, statuses, place IDs, or saved details.
+* After optimization, recalculate:
+
+  * Walking route
+  * Walking times between consecutive stops
+  * Total walking time
+  * Total distance
+  * Map marker numbering
+* Show “Optimizing route…” while optimization is running.
+* Prevent multiple optimization jobs from running at the same time.
+* Show a success message after optimization, such as: “Route optimized: 4.6 mi, 71 min. You can still drag stops to adjust the order.”
+* If optimization fails, preserve the previous route order and show: “We could not optimize this route. Your current stop order was preserved.”
+* Save the optimized route order to local storage.
+* Keep drag-and-drop reorder and move earlier / move later controls available after optimization.
+
+Use a practical optimization approach. Do not brute-force every possible route for larger lists. Implement an MVP-friendly heuristic:
+
+1. Build a distance matrix for active locations.
+2. Use walking distance and time from the routing API when available.
+3. Use straight-line distance as a fallback in mock mode.
+4. Generate an initial route using nearest-neighbor.
+5. Apply a 2-opt improvement pass if feasible.
+6. Return the optimized ordered list of active location IDs.
+7. Recalculate final route details with the existing routing service.
+
+For this version, assume there is no fixed start or fixed end. All active stops can be reordered. The optimized route is only a suggestion, and users can manually adjust it afterward.
+
+Do not build fixed start/end selection, round-trip mode, multiple route alternatives, opening hours optimization, scenic route preferences, accessibility routing, multi-day planning, undo optimization, collaboration, or export to Google Maps as part of this feature.
