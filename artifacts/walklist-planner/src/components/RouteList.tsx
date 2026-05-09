@@ -19,13 +19,14 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Location, RouteLeg, LegTransitStep, TransitMode } from "../types/route";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface RouteListProps {
   activeLocations: Location[];
   legs: RouteLeg[];
   isMockMode: boolean;
+  isOptimizing?: boolean;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
@@ -260,6 +261,7 @@ export function RouteList({
   activeLocations,
   legs,
   isMockMode,
+  isOptimizing = false,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -321,6 +323,12 @@ export function RouteList({
         <h2 className="text-sm font-semibold uppercase text-muted-foreground tracking-wider">
           Active Route ({activeLocations.length} stops)
         </h2>
+        {isOptimizing && (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Optimizing...
+          </span>
+        )}
       </div>
 
       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-md p-3 mb-4 text-xs text-blue-800 dark:text-blue-300">

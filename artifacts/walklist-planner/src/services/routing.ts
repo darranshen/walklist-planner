@@ -1,5 +1,70 @@
 import { Location, LegTransitStep, TransitMode, RouteLeg } from '../types/route';
+import { ImportedLocation } from './mapsListImport';
 import { getHaversineDistance } from '../lib/haversine';
+
+function nearestNeighborOrder(locations: ImportedLocation[]): ImportedLocation[] {
+  if (locations.length <= 2) return locations;
+  const unvisited = [...locations];
+  const result: ImportedLocation[] = [unvisited.shift()!];
+  while (unvisited.length > 0) {
+    const current = result[result.length - 1];
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < unvisited.length; i++) {
+      const loc = unvisited[i];
+      if (
+        current.latitude == null || current.longitude == null ||
+        loc.latitude == null || loc.longitude == null
+      ) continue;
+      const dist = getHaversineDistance(current.latitude, current.longitude, loc.latitude, loc.longitude);
+      if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+    }
+    result.push(unvisited.splice(nearestIdx, 1)[0]);
+  }
+  return result;
+}
+
+export async function optimizeLocationsOrder(
+  locations: ImportedLocation[],
+  isMockMode: boolean,
+): Promise<ImportedLocation[]> {
+  if (locations.length <= 2) return locations;
+
+  // Skip if any location is missing coordinates
+  const hasCoords = locations.every(l => l.latitude != null && l.longitude != null);
+  if (!hasCoords) return locations;
+
+  if (!isMockMode && window.google?.maps && locations.length <= 25) {
+    try {
+      const origin = locations[0];
+      const destination = locations[locations.length - 1];
+      const intermediates = locations.slice(1, -1);
+
+      if (intermediates.length > 0) {
+        const directionsService = new window.google.maps.DirectionsService();
+        const result = await directionsService.route({
+          origin: { lat: origin.latitude!, lng: origin.longitude! },
+          destination: { lat: destination.latitude!, lng: destination.longitude! },
+          waypoints: intermediates.map(loc => ({
+            location: { lat: loc.latitude!, lng: loc.longitude! },
+            stopover: true,
+          })),
+          optimizeWaypoints: true,
+          travelMode: window.google.maps.TravelMode.WALKING,
+        });
+        const order = result.routes[0]?.waypoint_order;
+        if (order && order.length === intermediates.length) {
+          console.log('[routing] Waypoint optimization order:', order);
+          return [origin, ...order.map(i => intermediates[i]), destination];
+        }
+      }
+    } catch (e) {
+      console.warn('[routing] Waypoint optimization failed, falling back to nearest-neighbor:', e);
+    }
+  }
+
+  return nearestNeighborOrder(locations);
+}
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRouteState } from "./hooks/useRouteState";
+import { optimizeLocationsOrder } from "./services/routing";
 import { X } from "lucide-react";
 
 // Components
@@ -21,6 +22,7 @@ const queryClient = new QueryClient();
 function WalkListApp() {
   const { state, actions } = useRouteState();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   if (!state) {
     return (
@@ -62,17 +64,23 @@ function WalkListApp() {
                 state.plan.removedLocationIds.length > 0
               }
               onUpdate={actions.updateSourceUrl}
-              onImport={(locs, keepExisting) => {
-                const mapped = locs.map((l) => ({
-                  name: l.name,
-                  address: l.address,
-                  latitude: l.latitude,
-                  longitude: l.longitude,
-                }));
-                if (keepExisting) {
-                  actions.bulkAddLocations(mapped);
-                } else {
-                  actions.bulkReplaceLocations(mapped);
+              onImport={async (locs, keepExisting) => {
+                setIsOptimizing(true);
+                try {
+                  const optimized = await optimizeLocationsOrder(locs, state.isMockMode);
+                  const mapped = optimized.map((l) => ({
+                    name: l.name,
+                    address: l.address,
+                    latitude: l.latitude,
+                    longitude: l.longitude,
+                  }));
+                  if (keepExisting) {
+                    actions.bulkAddLocations(mapped);
+                  } else {
+                    actions.bulkReplaceLocations(mapped);
+                  }
+                } finally {
+                  setIsOptimizing(false);
                 }
               }}
             />
@@ -84,6 +92,7 @@ function WalkListApp() {
               activeLocations={activeLocations}
               legs={state.legs}
               isMockMode={state.isMockMode}
+              isOptimizing={isOptimizing}
               onMoveUp={actions.moveLocationUp}
               onMoveDown={actions.moveLocationDown}
               onRemove={actions.removeLocation}
