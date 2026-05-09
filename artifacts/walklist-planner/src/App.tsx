@@ -57,17 +57,24 @@ function WalkListApp() {
             <Header />
             <SourceUrlField
               initialUrl={state.plan.sourceListUrl}
-              onUpdate={actions.updateSourceUrl}
-              onImport={(locs) =>
-                actions.bulkAddLocations(
-                  locs.map((l) => ({
-                    name: l.name,
-                    address: l.address,
-                    latitude: l.latitude,
-                    longitude: l.longitude,
-                  })),
-                )
+              hasExistingLocations={
+                state.plan.activeLocationIds.length > 0 ||
+                state.plan.removedLocationIds.length > 0
               }
+              onUpdate={actions.updateSourceUrl}
+              onImport={(locs, keepExisting) => {
+                const mapped = locs.map((l) => ({
+                  name: l.name,
+                  address: l.address,
+                  latitude: l.latitude,
+                  longitude: l.longitude,
+                }));
+                if (keepExisting) {
+                  actions.bulkAddLocations(mapped);
+                } else {
+                  actions.bulkReplaceLocations(mapped);
+                }
+              }}
             />
             <ActionButtons
               onAddClick={() => setIsAddModalOpen(true)}
