@@ -115,6 +115,9 @@ export function SourceUrlField({ initialUrl, hasExistingLocations, onUpdate, onI
   return (
     <>
       <div className="mb-6 space-y-2">
+        <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+          Paste your Google Maps Shared List below
+        </p>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Input
