@@ -239,32 +239,27 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
         });
 
         marker.addListener("mouseover", () => {
-          if (!loc.placeId) {
-            infoWindow.setContent(buildNameOnlyContent(loc.name));
-            infoWindow.open(map, marker);
-            return;
-          }
-
-          const cached = cache.get(loc.placeId);
+          const cacheKey = loc.id;
+          const cached = cache.get(cacheKey);
           if (cached) {
             infoWindow.setContent(buildRichContent(cached));
             infoWindow.open(map, marker);
             return;
           }
 
-          // Show loading state immediately, then fetch
           infoWindow.setContent(buildLoadingContent(loc.name));
           infoWindow.open(map, marker);
 
-          placesService.getDetails(
+          placesService.textSearch(
             {
-              placeId: loc.placeId,
-              fields: ["name", "rating", "user_ratings_total", "photos", "types", "price_level"],
+              query: loc.name,
+              location: { lat: loc.latitude!, lng: loc.longitude! },
+              radius: 300,
             },
-            (place, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                cache.set(loc.placeId!, place);
-                infoWindow.setContent(buildRichContent(place));
+            (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]) {
+                cache.set(cacheKey, results[0]);
+                infoWindow.setContent(buildRichContent(results[0]));
               } else {
                 infoWindow.setContent(buildNameOnlyContent(loc.name));
               }
