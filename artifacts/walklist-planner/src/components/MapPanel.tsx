@@ -11,6 +11,81 @@ interface MapPanelProps {
   onApiFailure: () => void;
 }
 
+// ─── Place preview helpers ───────────────────────────────────────────────────
+
+const GENERIC_TYPES = new Set([
+  "point_of_interest", "establishment", "premise", "subpremise",
+  "political", "locality", "sublocality", "neighborhood",
+  "street_address", "route", "geocode",
+]);
+
+function formatType(types: string[] = []): string {
+  const t = types.find((t) => !GENERIC_TYPES.has(t));
+  if (!t) return "";
+  return t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function buildStars(rating: number): string {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5 ? 1 : 0;
+  const empty = 5 - full - half;
+  const star = `<span style="color:#fbbc04;">★</span>`;
+  const halfStar = `<span style="color:#fbbc04;opacity:0.5;">★</span>`;
+  const emptyStar = `<span style="color:#ccc;">★</span>`;
+  return star.repeat(full) + halfStar.repeat(half) + emptyStar.repeat(empty);
+}
+
+function buildLoadingContent(name: string): string {
+  return `
+    <div style="width:240px;padding:2px;font-family:Arial,sans-serif;">
+      <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#1a1a1a;">${name}</p>
+      <p style="margin:0;font-size:11px;color:#999;">Loading preview…</p>
+    </div>`;
+}
+
+function buildNameOnlyContent(name: string): string {
+  return `
+    <div style="width:200px;padding:2px;font-family:Arial,sans-serif;">
+      <p style="margin:0;font-size:14px;font-weight:700;color:#1a1a1a;">${name}</p>
+    </div>`;
+}
+
+function buildRichContent(place: google.maps.places.PlaceResult): string {
+  const name = place.name ?? "";
+  const rating = place.rating;
+  const reviews = place.user_ratings_total;
+  const price = place.price_level != null ? "$".repeat(place.price_level) : "";
+  const type = formatType(place.types ?? []);
+  const photoUrl = place.photos?.[0]?.getUrl({ maxWidth: 280, maxHeight: 150 });
+
+  const ratingLine = rating != null
+    ? `<p style="margin:0 0 2px;font-size:12px;line-height:1.4;">
+         ${buildStars(rating)}
+         <span style="color:#333;font-weight:600;margin-left:2px;">${rating.toFixed(1)}</span>
+         ${reviews != null ? `<span style="color:#777;"> (${reviews.toLocaleString()})</span>` : ""}
+         ${price ? `<span style="color:#777;"> · ${price}</span>` : ""}
+       </p>`
+    : "";
+
+  const typeLine = type
+    ? `<p style="margin:0;font-size:12px;color:#777;">${type}</p>`
+    : "";
+
+  const photo = photoUrl
+    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 10px -16px;height:140px;object-fit:cover;" />`
+    : "";
+
+  return `
+    <div style="width:248px;font-family:Arial,sans-serif;">
+      ${photo}
+      <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a1a1a;line-height:1.3;">${name}</p>
+      ${ratingLine}
+      ${typeLine}
+    </div>`;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
@@ -27,6 +102,8 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
   const googlePolylinesRef = useRef<google.maps.Polyline[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const placesCacheRef = useRef<Map<string, google.maps.places.PlaceResult>>(new Map());
 
   useEffect(() => {
     if (!isMockMode) {
@@ -96,7 +173,6 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
       map.setView([activeLocations[0].latitude, activeLocations[0].longitude], 15);
     }
 
-    // Force Leaflet to recalculate size after becoming visible
     setTimeout(() => map.invalidateSize(), 50);
   }, [isMockMode, activeLocations, legs]);
 
@@ -135,6 +211,12 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
     }
     const infoWindow = infoWindowRef.current;
 
+    if (!placesServiceRef.current) {
+      placesServiceRef.current = new google.maps.places.PlacesService(map);
+    }
+    const placesService = placesServiceRef.current;
+    const cache = placesCacheRef.current;
+
     activeLocations.forEach((loc, i) => {
       if (loc.latitude != null && loc.longitude != null) {
         const marker = new google.maps.Marker({
@@ -157,9 +239,39 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
         });
 
         marker.addListener("mouseover", () => {
-          infoWindow.setContent(`<div style="font-size:13px;font-weight:600;padding:2px 4px;">${loc.name}</div>`);
+          if (!loc.placeId) {
+            infoWindow.setContent(buildNameOnlyContent(loc.name));
+            infoWindow.open(map, marker);
+            return;
+          }
+
+          const cached = cache.get(loc.placeId);
+          if (cached) {
+            infoWindow.setContent(buildRichContent(cached));
+            infoWindow.open(map, marker);
+            return;
+          }
+
+          // Show loading state immediately, then fetch
+          infoWindow.setContent(buildLoadingContent(loc.name));
           infoWindow.open(map, marker);
+
+          placesService.getDetails(
+            {
+              placeId: loc.placeId,
+              fields: ["name", "rating", "user_ratings_total", "photos", "types", "price_level"],
+            },
+            (place, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                cache.set(loc.placeId!, place);
+                infoWindow.setContent(buildRichContent(place));
+              } else {
+                infoWindow.setContent(buildNameOnlyContent(loc.name));
+              }
+            }
+          );
         });
+
         marker.addListener("mouseout", () => {
           infoWindow.close();
         });
@@ -201,7 +313,6 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
             if (status === google.maps.DirectionsStatus.OK && result) {
               renderer.setDirections(result);
             } else {
-              // Fallback to straight-line polylines if Directions API fails
               renderer.setMap(null);
               directionsRendererRef.current = null;
               for (let i = 0; i < activeLocations.length - 1; i++) {
