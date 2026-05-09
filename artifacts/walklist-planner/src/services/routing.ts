@@ -52,43 +52,12 @@ function bestNearestNeighborOrder<T extends OptimizableLocation>(locations: T[])
   return best;
 }
 
-export async function optimizeLocationsOrder<T extends OptimizableLocation>(
+export function optimizeLocationsOrder<T extends OptimizableLocation>(
   locations: T[],
-  isMockMode: boolean,
-): Promise<T[]> {
+): T[] {
   if (locations.length <= 2) return locations;
-
   const hasCoords = locations.every(l => l.latitude != null && l.longitude != null);
   if (!hasCoords) return locations;
-
-  if (!isMockMode && window.google?.maps && locations.length <= 25) {
-    try {
-      const origin = locations[0];
-      const destination = locations[locations.length - 1];
-      const intermediates = locations.slice(1, -1);
-
-      if (intermediates.length > 0) {
-        const directionsService = new window.google.maps.DirectionsService();
-        const result = await directionsService.route({
-          origin: { lat: origin.latitude!, lng: origin.longitude! },
-          destination: { lat: destination.latitude!, lng: destination.longitude! },
-          waypoints: intermediates.map(loc => ({
-            location: { lat: loc.latitude!, lng: loc.longitude! },
-            stopover: true,
-          })),
-          optimizeWaypoints: true,
-          travelMode: window.google.maps.TravelMode.WALKING,
-        });
-        const order = result.routes[0]?.waypoint_order;
-        if (order && order.length === intermediates.length) {
-          return [origin, ...order.map(i => intermediates[i]), destination];
-        }
-      }
-    } catch (e) {
-      console.warn('[routing] Waypoint optimization failed, falling back to nearest-neighbor:', e);
-    }
-  }
-
   return bestNearestNeighborOrder(locations);
 }
 

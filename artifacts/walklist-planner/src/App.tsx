@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRouteState } from "./hooks/useRouteState";
-import { optimizeLocationsOrder, totalHaversineDistance } from "./services/routing";
+import { optimizeLocationsOrder } from "./services/routing";
 import { Location } from "./types/route";
 import { X } from "lucide-react";
 
@@ -20,16 +20,6 @@ import { MockModeBanner } from "./components/MockModeBanner";
 import { InfoBar } from "./components/InfoBar";
 
 const queryClient = new QueryClient();
-
-function formatOptimizeMessage(totalMeters: number, isMockMode: boolean): string {
-  const totalMiles = (totalMeters / 1609.34).toFixed(1);
-  const totalMinutes = Math.round(totalMeters / 80);
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const timeStr = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
-  const suffix = isMockMode ? "" : " (estimated)";
-  return `Route optimized: ${totalMiles} mi, ${timeStr}${suffix}`;
-}
 
 function WalkListApp() {
   const { state, actions } = useRouteState();
@@ -54,8 +44,8 @@ function WalkListApp() {
     dismissTimerRef.current = setTimeout(() => setOptimizeResult(null), 6000);
   }
 
-  function showSuccess(totalMeters: number) {
-    setOptimizeResult({ type: "success", message: formatOptimizeMessage(totalMeters, state!.isMockMode) });
+  function showSuccess(message: string) {
+    setOptimizeResult({ type: "success", message });
     scheduleResultDismiss();
   }
 
@@ -64,16 +54,23 @@ function WalkListApp() {
     scheduleResultDismiss();
   }
 
-  async function handleManualOptimize() {
+  function handleManualOptimize() {
     if (activeLocations.length < 2 || isOptimizing) return;
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     setIsOptimizing(true);
     setOptimizeResult(null);
+
     const prevIds = activeLocations.map((l: Location) => l.id);
     try {
-      const optimized = await optimizeLocationsOrder(activeLocations, state!.isMockMode);
-      actions.reorderLocations(optimized.map((l: Location) => l.id));
-      showSuccess(totalHaversineDistance(optimized));
+      const optimized = optimizeLocationsOrder(activeLocations);
+      const newIds = optimized.map((l: Location) => l.id);
+      const changed = newIds.some((id, i) => id !== prevIds[i]);
+      actions.reorderLocations(newIds);
+      showSuccess(
+        changed
+          ? "Route reordered to minimize walking distance."
+          : "Route is already in the optimal order."
+      );
     } catch {
       actions.reorderLocations(prevIds);
       showError("Optimization failed. Your previous route order was kept.");
@@ -111,28 +108,32 @@ function WalkListApp() {
                 state.plan.removedLocationIds.length > 0
               }
               onUpdate={actions.updateSourceUrl}
-              onImport={async (locs, keepExisting) => {
+              onImport={(locs, keepExisting) => {
                 if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
                 setIsOptimizing(true);
                 setOptimizeResult(null);
+
                 let optimizedLocs = locs;
                 try {
-                  optimizedLocs = await optimizeLocationsOrder(locs, state.isMockMode);
+                  optimizedLocs = optimizeLocationsOrder(locs);
                 } catch {
                   // fall through with original order
                 }
+
                 const mapped = optimizedLocs.map((l) => ({
                   name: l.name,
                   address: l.address,
                   latitude: l.latitude,
                   longitude: l.longitude,
                 }));
+
                 if (keepExisting) {
                   actions.bulkAddLocations(mapped);
                 } else {
                   actions.bulkReplaceLocations(mapped);
                 }
-                showSuccess(totalHaversineDistance(optimizedLocs));
+
+                showSuccess("Route imported and reordered to minimize walking distance.");
                 setIsOptimizing(false);
               }}
             />
