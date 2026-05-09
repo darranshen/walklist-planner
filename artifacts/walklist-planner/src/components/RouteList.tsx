@@ -208,6 +208,11 @@ function LocationCardInner({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h3 className="font-semibold text-sm" title={loc.name}>{loc.name}</h3>
+            {loc.source === 'manual' && (
+              <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
+                manual
+              </span>
+            )}
             {isLocked && (
               <span className="text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
                 locked

@@ -6,6 +6,7 @@ export interface Location {
   longitude: number | null;
   placeId?: string;
   status: 'active' | 'removed';
+  source?: 'import' | 'manual';
   locked?: boolean;
   createdAt: string;
   updatedAt: string;

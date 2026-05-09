@@ -184,7 +184,7 @@ function WalkListApp() {
       <AddLocationModal
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onAdd={actions.addLocation}
+        onAddMultiple={actions.bulkAddLocations}
         isMockMode={state.isMockMode}
       />
     </div>
