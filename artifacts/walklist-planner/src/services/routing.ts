@@ -52,13 +52,65 @@ function bestNearestNeighborOrder<T extends OptimizableLocation>(locations: T[])
   return best;
 }
 
-export function optimizeLocationsOrder<T extends OptimizableLocation>(
+function nearestNeighborFrom<T extends OptimizableLocation>(anchor: T, locations: T[]): T[] {
+  const unvisited = [...locations];
+  const result: T[] = [];
+  let current = anchor;
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < unvisited.length; i++) {
+      const loc = unvisited[i];
+      if (
+        current.latitude == null || current.longitude == null ||
+        loc.latitude == null || loc.longitude == null
+      ) continue;
+      const dist = getHaversineDistance(current.latitude, current.longitude, loc.latitude, loc.longitude);
+      if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+    }
+    const next = unvisited.splice(nearestIdx, 1)[0];
+    result.push(next);
+    current = next;
+  }
+  return result;
+}
+
+export function optimizeLocationsOrder<T extends OptimizableLocation & { locked?: boolean }>(
   locations: T[],
 ): T[] {
   if (locations.length <= 2) return locations;
   const hasCoords = locations.every(l => l.latitude != null && l.longitude != null);
   if (!hasCoords) return locations;
-  return bestNearestNeighborOrder(locations);
+
+  const hasLocked = locations.some(l => l.locked);
+  if (!hasLocked) return bestNearestNeighborOrder(locations);
+
+  // Optimize each segment of unlocked stops between locked anchors
+  const result: T[] = [];
+  let pending: T[] = [];
+
+  for (const loc of locations) {
+    if (loc.locked) {
+      if (pending.length > 0) {
+        const anchor = result.length > 0 ? result[result.length - 1] : null;
+        const optimized = anchor ? nearestNeighborFrom(anchor, pending) : bestNearestNeighborOrder(pending);
+        result.push(...optimized);
+        pending = [];
+      }
+      result.push(loc);
+    } else {
+      pending.push(loc);
+    }
+  }
+
+  // Trailing unlocked segment
+  if (pending.length > 0) {
+    const anchor = result.length > 0 ? result[result.length - 1] : null;
+    const optimized = anchor ? nearestNeighborFrom(anchor, pending) : bestNearestNeighborOrder(pending);
+    result.push(...optimized);
+  }
+
+  return result;
 }
 
 function stripHtml(html: string): string {

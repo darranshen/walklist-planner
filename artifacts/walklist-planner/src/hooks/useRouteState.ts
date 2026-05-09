@@ -383,6 +383,21 @@ export function useRouteState() {
     });
   }, []);
 
+  const toggleLockLocation = useCallback((id: string) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const loc = prev.locations[id];
+      if (!loc) return prev;
+      return {
+        ...prev,
+        locations: {
+          ...prev.locations,
+          [id]: { ...loc, locked: !loc.locked, updatedAt: new Date().toISOString() },
+        },
+      };
+    });
+  }, []);
+
   const dismissRouteWarning = useCallback(() => {
     setState(prev => {
       if (!prev) return prev;
@@ -405,6 +420,7 @@ export function useRouteState() {
       updateSourceUrl,
       clearAll,
       setMockMode,
+      toggleLockLocation,
       dismissRouteWarning,
     },
   };

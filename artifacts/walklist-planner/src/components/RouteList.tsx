@@ -19,7 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Location, RouteLeg, LegTransitStep, TransitMode } from "../types/route";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical, Loader2, CheckCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical, Loader2, CheckCircle, Lock, LockOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 export interface OptimizeResult {
@@ -37,6 +37,7 @@ interface RouteListProps {
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
   onReorder: (newIds: string[]) => void;
+  onToggleLock: (id: string) => void;
   onAddClick: () => void;
 }
 
@@ -158,6 +159,7 @@ interface LocationCardProps {
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
+  onToggleLock: (id: string) => void;
   isDragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
 }
@@ -169,32 +171,49 @@ function LocationCardInner({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onToggleLock,
   isDragging = false,
   dragHandleProps = {},
 }: LocationCardProps) {
   const isFirst = index === 0;
   const isLast = index === total - 1;
+  const isLocked = !!loc.locked;
 
   return (
     <Card className={`relative p-4 pr-14 min-h-[86px] transition-all ${
       isDragging
         ? 'shadow-lg border-primary/50 bg-primary/5'
-        : 'hover:border-primary/30'
+        : isLocked
+          ? 'border-amber-300 bg-amber-50/40 dark:border-amber-700 dark:bg-amber-950/20'
+          : 'hover:border-primary/30'
     }`}>
       <div className="flex items-start gap-3">
         <button
-          className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
-          aria-label={`Drag to reorder ${loc.name}`}
+          className={`flex-shrink-0 mt-1 transition-colors touch-none ${
+            isLocked
+              ? 'cursor-not-allowed text-muted-foreground/20'
+              : 'cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground'
+          }`}
+          aria-label={isLocked ? `${loc.name} is locked and cannot be dragged` : `Drag to reorder ${loc.name}`}
           tabIndex={-1}
-          {...dragHandleProps}
+          {...(isLocked ? {} : dragHandleProps)}
         >
           <GripVertical className="w-4 h-4" />
         </button>
-        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">
+        <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${
+          isLocked ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'
+        }`}>
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
+            {isLocked && (
+              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
+                locked
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
         </div>
       </div>
@@ -221,6 +240,18 @@ function LocationCardInner({
             <ArrowDown className="w-3.5 h-3.5 text-foreground" />
           </button>
         </div>
+        <button
+          onClick={() => onToggleLock(loc.id)}
+          className={`p-1.5 rounded-md self-end transition-colors ${
+            isLocked
+              ? 'text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40'
+              : 'text-muted-foreground/50 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+          }`}
+          aria-label={isLocked ? `Unlock ${loc.name}` : `Lock ${loc.name} in place`}
+          data-testid={`button-lock-${loc.id}`}
+        >
+          {isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
+        </button>
         <button
           onClick={() => onRemove(loc.id)}
           className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
@@ -272,6 +303,7 @@ export function RouteList({
   onMoveDown,
   onRemove,
   onReorder,
+  onToggleLock,
   onAddClick,
 }: RouteListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -380,6 +412,7 @@ export function RouteList({
                     onMoveUp={onMoveUp}
                     onMoveDown={onMoveDown}
                     onRemove={onRemove}
+                    onToggleLock={onToggleLock}
                   />
                   {activeLocations.length > 1 && (
                     <LegConnector leg={legs[index]} isMockMode={isMockMode} isLast={isLast} />
@@ -400,6 +433,7 @@ export function RouteList({
                 onMoveUp={() => {}}
                 onMoveDown={() => {}}
                 onRemove={() => {}}
+                onToggleLock={() => {}}
               />
             </div>
           ) : null}

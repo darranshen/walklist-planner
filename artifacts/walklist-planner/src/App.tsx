@@ -153,6 +153,7 @@ function WalkListApp() {
               onMoveDown={actions.moveLocationDown}
               onRemove={actions.removeLocation}
               onReorder={actions.reorderLocations}
+              onToggleLock={actions.toggleLockLocation}
               onAddClick={() => setIsAddModalOpen(true)}
             />
             <RemovedLocations
