@@ -180,11 +180,11 @@ function LocationCardInner({
   const isLocked = !!loc.locked;
 
   return (
-    <Card className={`relative p-4 pr-14 min-h-[86px] transition-all ${
+    <Card className={`relative p-4 pr-[60px] transition-all ${
       isDragging
         ? 'shadow-lg border-primary/50 bg-primary/5'
         : isLocked
-          ? 'border-amber-300 bg-amber-50/40 dark:border-amber-700 dark:bg-amber-950/20'
+          ? 'border-green-300 bg-green-50/40 dark:border-green-700 dark:bg-green-950/20'
           : 'hover:border-primary/30'
     }`}>
       <div className="flex items-start gap-3">
@@ -201,20 +201,20 @@ function LocationCardInner({
           <GripVertical className="w-4 h-4" />
         </button>
         <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5 ${
-          isLocked ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'
+          isLocked ? 'bg-green-600 text-white' : 'bg-primary text-primary-foreground'
         }`}>
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 className="font-semibold text-sm" title={loc.name}>{loc.name}</h3>
             {isLocked && (
-              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
+              <span className="text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/40 px-1.5 py-0.5 rounded flex-shrink-0">
                 locked
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
+          <p className="text-xs text-muted-foreground leading-snug">{loc.address}</p>
         </div>
       </div>
 
@@ -240,26 +240,29 @@ function LocationCardInner({
             <ArrowDown className="w-3.5 h-3.5 text-foreground" />
           </button>
         </div>
-        <button
-          onClick={() => onToggleLock(loc.id)}
-          className={`p-1.5 rounded-md self-end transition-colors ${
-            isLocked
-              ? 'text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40'
-              : 'text-muted-foreground/50 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-          }`}
-          aria-label={isLocked ? `Unlock ${loc.name}` : `Lock ${loc.name} in place`}
-          data-testid={`button-lock-${loc.id}`}
-        >
-          {isLocked ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />}
-        </button>
-        <button
-          onClick={() => onRemove(loc.id)}
-          className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
-          aria-label={`Remove ${loc.name} from route`}
-          data-testid={`button-remove-${loc.id}`}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
+          <button
+            onClick={() => onToggleLock(loc.id)}
+            className={`p-1 transition-colors ${
+              isLocked
+                ? 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/40'
+                : 'text-foreground hover:bg-muted'
+            }`}
+            aria-label={isLocked ? `Unlock ${loc.name}` : `Lock ${loc.name} in place`}
+            data-testid={`button-lock-${loc.id}`}
+          >
+            {isLocked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+          </button>
+          <div className="w-[1px] bg-border" />
+          <button
+            onClick={() => onRemove(loc.id)}
+            className="p-1 hover:bg-destructive/10 text-foreground hover:text-destructive transition-colors"
+            aria-label={`Remove ${loc.name} from route`}
+            data-testid={`button-remove-${loc.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </Card>
   );
