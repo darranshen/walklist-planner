@@ -52,9 +52,17 @@ function formatHoursStatus(hours: google.maps.places.OpeningHours): string {
   </div>`;
 }
 
+const CLOSE_BTN = `<button onclick="window.__gmCloseIW&&window.__gmCloseIW()"
+  style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;
+         background:rgba(0,0,0,0.52);border:2px solid rgba(255,255,255,0.85);
+         cursor:pointer;color:#fff;font-size:15px;line-height:22px;text-align:center;
+         padding:0;font-weight:400;z-index:1;">&#x2715;</button>`;
+
 function buildLoadingContent(name: string): string {
   return `
-    <div style="width:260px;padding:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="width:268px;position:relative;padding:12px 42px 12px 14px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      ${CLOSE_BTN}
       <p style="margin:0 0 4px;font-size:14px;font-weight:700;color:#0f172a;">${name}</p>
       <p style="margin:0;font-size:12px;color:#94a3b8;">Loading preview…</p>
     </div>`;
@@ -62,7 +70,9 @@ function buildLoadingContent(name: string): string {
 
 function buildNameOnlyContent(name: string): string {
   return `
-    <div style="width:220px;padding:2px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="width:268px;position:relative;padding:12px 42px 12px 14px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      ${CLOSE_BTN}
       <p style="margin:0;font-size:14px;font-weight:700;color:#0f172a;">${name}</p>
     </div>`;
 }
@@ -78,12 +88,15 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
   const summary = (place as any).editorial_summary?.overview ?? "";
   const hours = place.opening_hours;
 
-  const photo = photoUrl
-    ? `<img src="${photoUrl}" style="display:block;width:calc(100% + 32px);margin:-12px -16px 0 -16px;height:120px;object-fit:cover;border-radius:2px 2px 0 0;" />`
+  const photoSection = photoUrl
+    ? `<div style="position:relative;">
+        <img src="${photoUrl}" style="display:block;width:100%;height:128px;object-fit:cover;" />
+        ${CLOSE_BTN}
+       </div>`
     : "";
 
   const ratingLine = rating != null
-    ? `<p style="margin:0 0 1px;font-size:12px;line-height:1.4;">
+    ? `<p style="margin:0 0 2px;font-size:12px;line-height:1.4;">
         ${buildStars(rating)}
         <span style="color:#1e293b;font-weight:600;margin-left:3px;">${rating.toFixed(1)}</span>
         ${reviews != null ? `<span style="color:#64748b;"> (${reviews.toLocaleString()})</span>` : ""}
@@ -98,22 +111,30 @@ function buildRichContent(place: google.maps.places.PlaceResult): string {
   const divider = `<hr style="border:none;border-top:1px solid #e2e8f0;margin:6px 0;">`;
 
   const summaryBlock = summary
-    ? `<p style="margin:0 0 5px;font-size:11.5px;color:#475569;line-height:1.45;font-style:italic;">${summary}</p>`
+    ? `<p style="margin:0 0 5px;font-size:12px;color:#475569;line-height:1.45;font-style:italic;">${summary}</p>`
     : "";
 
   const addressBlock = address
-    ? `<p style="margin:0 0 3px;font-size:11.5px;color:#475569;line-height:1.4;">${address}</p>`
+    ? `<p style="margin:0 0 4px;font-size:12px;color:#475569;line-height:1.4;">${address}</p>`
     : "";
 
   const hoursBlock = hours ? formatHoursStatus(hours) : "";
 
   const hasExtra = summaryBlock || addressBlock || hoursBlock;
 
-  return `
-    <div style="width:260px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:-12px -16px -10px;">
-      ${photo}
-      <div style="padding:8px 13px 4px;">
+  /* When there is no photo, leave room for the close button in the header */
+  const nameRow = photoUrl
+    ? `<p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#0f172a;line-height:1.3;">${name}</p>`
+    : `<div style="position:relative;padding-right:32px;">
+        ${CLOSE_BTN}
         <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#0f172a;line-height:1.3;">${name}</p>
+       </div>`;
+
+  return `
+    <div style="width:280px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden;">
+      ${photoSection}
+      <div style="padding:10px 14px 10px;">
+        ${nameRow}
         ${ratingLine}
         ${typeLine}
         ${hasExtra ? divider : ""}
@@ -248,14 +269,15 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
     const bounds = new google.maps.LatLngBounds();
 
     if (!infoWindowRef.current) {
-      infoWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true, maxWidth: 292 });
+      infoWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });
     }
     const infoWindow = infoWindowRef.current;
 
-    // Clear pin state when the X button is clicked
-    infoWindow.addListener("closeclick", () => {
+    // Expose a global so the custom X button embedded in card HTML can close and unpin
+    (window as any).__gmCloseIW = () => {
+      infoWindow.close();
       pinnedMarkerRef.current = null;
-    });
+    };
 
     if (!placesServiceRef.current) {
       placesServiceRef.current = new google.maps.places.PlacesService(map);
