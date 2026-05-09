@@ -17,6 +17,7 @@ export function ActionButtons({
   return (
     <div className="flex flex-col gap-2 mb-8">
       <Button
+        variant="outline"
         onClick={onAddClick}
         className="w-full"
         data-testid="button-add-location"
@@ -25,7 +26,6 @@ export function ActionButtons({
         Add Location
       </Button>
       <Button
-        variant="outline"
         onClick={onOptimize}
         disabled={!canOptimize || isOptimizing}
         className="w-full"
