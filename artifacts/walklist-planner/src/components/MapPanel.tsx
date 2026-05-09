@@ -26,6 +26,7 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
   const googleMarkersRef = useRef<google.maps.Marker[]>([]);
   const googlePolylinesRef = useRef<google.maps.Polyline[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
 
   useEffect(() => {
     if (!isMockMode) {
@@ -129,6 +130,11 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
 
     const bounds = new google.maps.LatLngBounds();
 
+    if (!infoWindowRef.current) {
+      infoWindowRef.current = new google.maps.InfoWindow({ disableAutoPan: true });
+    }
+    const infoWindow = infoWindowRef.current;
+
     activeLocations.forEach((loc, i) => {
       if (loc.latitude != null && loc.longitude != null) {
         const marker = new google.maps.Marker({
@@ -149,6 +155,15 @@ export function MapPanel({ activeLocations, legs, isMockMode, onApiFailure }: Ma
             scale: 14,
           },
         });
+
+        marker.addListener("mouseover", () => {
+          infoWindow.setContent(`<div style="font-size:13px;font-weight:600;padding:2px 4px;">${loc.name}</div>`);
+          infoWindow.open(map, marker);
+        });
+        marker.addListener("mouseout", () => {
+          infoWindow.close();
+        });
+
         googleMarkersRef.current.push(marker);
         bounds.extend({ lat: loc.latitude, lng: loc.longitude });
       }
