@@ -87,6 +87,7 @@ function WalkListApp() {
               onMoveUp={actions.moveLocationUp}
               onMoveDown={actions.moveLocationDown}
               onRemove={actions.removeLocation}
+              onReorder={actions.reorderLocations}
               onAddClick={() => setIsAddModalOpen(true)}
               onLoadSample={actions.loadSampleRoute}
             />

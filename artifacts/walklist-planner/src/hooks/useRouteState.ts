@@ -333,6 +333,21 @@ export function useRouteState() {
     });
   }, []);
 
+  const reorderLocations = useCallback((newActiveIds: string[]) => {
+    setState(prev => {
+      if (!prev) return prev;
+      scheduleRouteUpdate(newActiveIds, prev.locations, prev.isMockMode);
+      return {
+        ...prev,
+        plan: {
+          ...prev.plan,
+          activeLocationIds: newActiveIds,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+    });
+  }, []);
+
   const bulkReplaceLocations = useCallback((
     incoming: Array<Omit<Location, 'id' | 'status' | 'createdAt' | 'updatedAt'>>,
   ) => {
@@ -381,6 +396,7 @@ export function useRouteState() {
       addLocation,
       bulkAddLocations,
       bulkReplaceLocations,
+      reorderLocations,
       removeLocation,
       restoreLocation,
       moveLocationUp,

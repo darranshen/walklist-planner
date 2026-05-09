@@ -1,6 +1,25 @@
+import { useState } from "react";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Location, RouteLeg, LegTransitStep, TransitMode } from "../types/route";
 import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, MapPin, Ship, Train, Bus, ArrowRight, AlertTriangle, GripVertical } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 interface RouteListProps {
@@ -10,6 +29,7 @@ interface RouteListProps {
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
+  onReorder: (newIds: string[]) => void;
   onAddClick: () => void;
   onLoadSample: () => void;
 }
@@ -125,6 +145,126 @@ function LegConnector({
   );
 }
 
+interface LocationCardProps {
+  loc: Location;
+  index: number;
+  total: number;
+  leg: RouteLeg | undefined;
+  isMockMode: boolean;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
+  onRemove: (id: string) => void;
+  isDragging?: boolean;
+  dragHandleProps?: Record<string, unknown>;
+}
+
+function LocationCardInner({
+  loc,
+  index,
+  total,
+  leg,
+  isMockMode,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+  isDragging = false,
+  dragHandleProps = {},
+}: LocationCardProps) {
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+
+  return (
+    <div className={`relative ${isDragging ? 'opacity-50' : ''}`}>
+      <Card className={`p-4 pr-14 min-h-[86px] transition-all ${
+        isDragging
+          ? 'shadow-lg border-primary/50 bg-primary/5 scale-[1.02] rotate-[0.5deg]'
+          : `hover:border-primary/30 ${isFirst ? 'border-primary/20 bg-primary/5' : ''}`
+      }`}>
+        <div className="flex items-start gap-3">
+          <button
+            className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
+            aria-label={`Drag to reorder ${loc.name}`}
+            tabIndex={-1}
+            {...dragHandleProps}
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">
+            {index + 1}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
+            <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
+          </div>
+        </div>
+
+        <div className="absolute right-2 top-2 flex flex-col gap-1">
+          <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => onMoveUp(index)}
+              disabled={isFirst}
+              className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              aria-label={`Move ${loc.name} earlier`}
+              data-testid={`button-up-${loc.id}`}
+            >
+              <ArrowUp className="w-3.5 h-3.5 text-foreground" />
+            </button>
+            <div className="w-[1px] bg-border" />
+            <button
+              onClick={() => onMoveDown(index)}
+              disabled={isLast}
+              className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+              aria-label={`Move ${loc.name} later`}
+              data-testid={`button-down-${loc.id}`}
+            >
+              <ArrowDown className="w-3.5 h-3.5 text-foreground" />
+            </button>
+          </div>
+          <button
+            onClick={() => onRemove(loc.id)}
+            className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
+            aria-label={`Remove ${loc.name} from route`}
+            data-testid={`button-remove-${loc.id}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </Card>
+
+      {total > 1 && (
+        <LegConnector leg={leg} isMockMode={isMockMode} isLast={isLast} />
+      )}
+    </div>
+  );
+}
+
+function SortableLocationCard(props: LocationCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.loc.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <LocationCardInner
+        {...props}
+        isDragging={isDragging}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
 export function RouteList({
   activeLocations,
   legs,
@@ -132,9 +272,42 @@ export function RouteList({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onReorder,
   onAddClick,
-  onLoadSample
+  onLoadSample,
 }: RouteListProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+  );
+
+  const activeLocation = activeId ? activeLocations.find(l => l.id === activeId) : null;
+  const activeIndex = activeLocation ? activeLocations.indexOf(activeLocation) : -1;
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = activeLocations.findIndex(l => l.id === active.id);
+    const newIndex = activeLocations.findIndex(l => l.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newIds = arrayMove(activeLocations, oldIndex, newIndex).map(l => l.id);
+    onReorder(newIds);
+  }
+
   if (activeLocations.length === 0) {
     return (
       <div className="mb-8">
@@ -160,7 +333,7 @@ export function RouteList({
       </div>
 
       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-md p-3 mb-4 text-xs text-blue-800 dark:text-blue-300">
-        Changing order changes the route sequence only. It does not edit location details.
+        Drag the <GripVertical className="inline w-3 h-3 -mt-0.5" /> handle or use the arrows to reorder stops. Changing order changes the route sequence only.
       </div>
 
       {activeLocations.length === 1 && (
@@ -169,67 +342,51 @@ export function RouteList({
         </p>
       )}
 
-      <div className="space-y-3">
-        {activeLocations.map((loc, index) => {
-          const isFirst = index === 0;
-          const isLast = index === activeLocations.length - 1;
-          const leg = legs[index];
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={activeLocations.map(l => l.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-3">
+            {activeLocations.map((loc, index) => (
+              <SortableLocationCard
+                key={loc.id}
+                loc={loc}
+                index={index}
+                total={activeLocations.length}
+                leg={legs[index]}
+                isMockMode={isMockMode}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                onRemove={onRemove}
+              />
+            ))}
+          </div>
+        </SortableContext>
 
-          return (
-            <div key={loc.id} className="relative">
-              <Card className={`p-4 pr-14 min-h-[86px] transition-all hover:border-primary/30 ${
-                isFirst ? 'border-primary/20 bg-primary/5' : ''
-              } ${isLast && activeLocations.length > 1 ? 'border-border bg-card' : ''}`}>
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold mt-0.5">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm truncate" title={loc.name}>{loc.name}</h3>
-                    <p className="text-xs text-muted-foreground truncate" title={loc.address}>{loc.address}</p>
-                  </div>
-                </div>
-
-                <div className="absolute right-2 top-2 flex flex-col gap-1">
-                  <div className="flex bg-muted/50 rounded-md border border-border overflow-hidden">
-                    <button
-                      onClick={() => onMoveUp(index)}
-                      disabled={isFirst}
-                      className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                      aria-label={`Move ${loc.name} earlier`}
-                      data-testid={`button-up-${loc.id}`}
-                    >
-                      <ArrowUp className="w-3.5 h-3.5 text-foreground" />
-                    </button>
-                    <div className="w-[1px] bg-border" />
-                    <button
-                      onClick={() => onMoveDown(index)}
-                      disabled={isLast}
-                      className="p-1 hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                      aria-label={`Move ${loc.name} later`}
-                      data-testid={`button-down-${loc.id}`}
-                    >
-                      <ArrowDown className="w-3.5 h-3.5 text-foreground" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => onRemove(loc.id)}
-                    className="p-1.5 hover:bg-destructive/10 text-muted-foreground hover:text-destructive rounded-md self-end transition-colors"
-                    aria-label={`Remove ${loc.name} from route`}
-                    data-testid={`button-remove-${loc.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </Card>
-
-              {activeLocations.length > 1 && (
-                <LegConnector leg={leg} isMockMode={isMockMode} isLast={isLast} />
-              )}
+        <DragOverlay dropAnimation={null}>
+          {activeLocation ? (
+            <div className="shadow-2xl rotate-[1deg]">
+              <LocationCardInner
+                loc={activeLocation}
+                index={activeIndex}
+                total={activeLocations.length}
+                leg={legs[activeIndex]}
+                isMockMode={isMockMode}
+                onMoveUp={() => {}}
+                onMoveDown={() => {}}
+                onRemove={() => {}}
+                isDragging={false}
+              />
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
